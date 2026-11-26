@@ -92,6 +92,8 @@ qemu-system-x86_64 \
 
 echo "==> esperando a que la VM esté arriba (SSH :$SSH_PORT)"
 SSH_OPTS="-p $SSH_PORT -o ConnectTimeout=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
+# scp usa -P (mayúscula) para el puerto; ssh usa -p (minúscula).
+SCP_OPTS="-P $SSH_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR"
 for i in $(seq 1 60); do
   if ssh $SSH_OPTS ubuntu@localhost true 2>/dev/null; then
     echo "    VM lista (intento $i)"
@@ -105,7 +107,7 @@ for i in $(seq 1 60); do
 done
 
 echo "==> copiando provision.sh y ejecutando la instalación (puede tardar varios minutos)"
-scp $SSH_OPTS "$HERE/provision.sh" ubuntu@localhost:/tmp/provision.sh
+scp $SCP_OPTS "$HERE/provision.sh" ubuntu@localhost:/tmp/provision.sh
 ssh $SSH_OPTS ubuntu@localhost 'bash /tmp/provision.sh'
 
 echo ""
