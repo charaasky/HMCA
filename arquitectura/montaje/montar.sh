@@ -132,14 +132,17 @@ fi
 echo "  grupo hcma-audit configurado (lectura de ledgers, escritura restringida)"
 
 paso "[4/6] Unidades systemd"
-# Antes de desplegar el dashboard: verificar que el puerto 8787 no esté ocupado por
-# un proceso ajeno/stale (evita conflicto de bind al arrancar la unidad).
-if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ':8787$'; then
-  PROC="$(ss -ltnp 2>/dev/null | grep ':8787 ' | tail -1 | sed -n 's/.*users:((\"\([^\"]*\)\",pid=\([0-9]*\).*/\1 (pid \2)/p')"
-  echo "  ⚠️  8787 ya en uso (${PROC:-proceso desconocido}); si no es hcma-dashboard, revisá antes de continuar."
-else
-  echo "  ok: 8787 libre"
-fi
+# Elegir un puerto libre para el dashboard (default 8787; si está ocupado, el siguiente).
+DASH_PORT="${HCMA_DASH_PORT:-8787}"
+while ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":${DASH_PORT}$"; do
+  echo "  puerto ${DASH_PORT} ocupado; probando el siguiente..."
+  DASH_PORT=$((DASH_PORT + 1))
+done
+install -d -m 0755 /etc/hcma
+cat > /etc/hcma/dash.env <<EOF
+HCMA_DASH_PORT=${DASH_PORT}
+EOF
+echo "  dashboard usará el puerto ${DASH_PORT}"
 install -m 0644 "${SCRIPTS}/hcma-monitor.service"  /etc/systemd/system/hcma-monitor.service
 install -m 0644 "${SCRIPTS}/hcma-proxy.service"    /etc/systemd/system/hcma-proxy.service
 instalar_servicio "${REPO}/arquitectura/dashboard/hcma-dashboard.service" \

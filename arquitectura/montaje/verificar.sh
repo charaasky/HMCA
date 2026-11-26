@@ -14,6 +14,12 @@ bad() { echo "  ❌ $1"; FAIL=1; }
 
 echo "=== Verificación de salud HCMA ==="
 
+# Puerto real del dashboard (puede no ser 8787 si estaba ocupado al instalar).
+if [ -f /etc/hcma/dash.env ]; then
+  . /etc/hcma/dash.env
+fi
+DASH_PORT="${HCMA_DASH_PORT:-8787}"
+
 id hcma-agent   >/dev/null 2>&1 && ok "hcma-agent   (uid $(id -u hcma-agent))"   || bad "hcma-agent"
 id hcma-signer  >/dev/null 2>&1 && ok "hcma-signer  (uid $(id -u hcma-signer))"  || bad "hcma-signer"
 id hcma-monitor >/dev/null 2>&1 && ok "hcma-monitor (uid $(id -u hcma-monitor))" || bad "hcma-monitor"
@@ -38,8 +44,8 @@ else
   ok "agente NO lee la privada del signer (frontera activa)"
 fi
 
-curl -skS -o /dev/null --max-time 5 https://localhost:8787/ \
-  && ok "dashboard responde en :8787" || bad "dashboard no responde en :8787"
+curl -skS -o /dev/null --max-time 5 https://localhost:${DASH_PORT}/ \
+  && ok "dashboard responde en :${DASH_PORT}" || bad "dashboard no responde en :${DASH_PORT}"
 
 echo ""
 if [ "$FAIL" -eq 0 ]; then

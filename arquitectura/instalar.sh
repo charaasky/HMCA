@@ -118,6 +118,10 @@ done
 # Link del dashboard: HTTPS autofirmado, con hostname e IP para acceso local o remoto.
 DASH_HOST="$(hostname 2>/dev/null || echo localhost)"
 DASH_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+if [ -f /etc/hcma/dash.env ]; then
+  . /etc/hcma/dash.env
+fi
+DASH_PORT="${HCMA_DASH_PORT:-8787}"
 
 # Credencial inicial del admin (se muestra UNA sola vez; el primer login fuerza el cambio).
 # Se corre como charasky (usuario del dashboard) para no romper el ownership de auth.db.
@@ -131,9 +135,9 @@ echo "==========================================================================
 echo " Instalación completa."
 echo ""
 echo "   Dashboard (HTTPS autofirmado — aceptá el aviso de certificado):"
-echo "     https://${DASH_HOST}:8787/"
+echo "     https://${DASH_HOST}:${DASH_PORT}/"
 if [ -n "${DASH_IP}" ]; then
-  echo "     https://${DASH_IP}:8787/   (IP local)"
+  echo "     https://${DASH_IP}:${DASH_PORT}/   (IP local)"
 fi
 echo ""
 if [ "${ADMIN_PW}" = "__YA_CONFIGURADA__" ]; then
@@ -144,12 +148,12 @@ else
   echo "     contraseña:  ${ADMIN_PW}"
 fi
 echo ""
-echo "   API (sin autenticar, con -k): curl -sk https://localhost:8787/api/components"
+echo "   API (sin autenticar, con -k): curl -sk https://localhost:${DASH_PORT}/api/components"
 echo ""
 echo "   Gateway LLM (OpenAI-compatible — Zed / VSCode / chat):"
-echo "     endpoint:      https://localhost:8787/v1"
+echo "     endpoint:      https://localhost:${DASH_PORT}/v1"
 if [ -n "${DASH_IP}" ]; then
-  echo "     endpoint (IP): https://${DASH_IP}:8787/v1"
+  echo "     endpoint (IP): https://${DASH_IP}:${DASH_PORT}/v1"
 fi
 echo "     gateway key:   en el dashboard → pestaña LLM → botón 'copiar'"
 echo ""

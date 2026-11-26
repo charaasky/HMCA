@@ -48,10 +48,14 @@ for s in hcma-monitor hcma-proxy hcma-dashboard hcma-firecracker hcma-px-motor; 
 done
 
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+if [ -f /etc/hcma/dash.env ]; then
+  . /etc/hcma/dash.env
+fi
+DASH_PORT="${HCMA_DASH_PORT:-8787}"
 echo ""
 echo "=================================================================="
 echo " INSTALACIÓN COMPLETA"
-echo "   Dashboard: https://${IP}:8787/"
+echo "   Dashboard: https://${IP}:${DASH_PORT}/"
 echo "   Log:       $LOG"
 echo "=================================================================="
 

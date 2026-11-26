@@ -30,7 +30,7 @@ WorkingDirectory=__HCMA_REPO__/arquitectura/dashboard
 
 ExecStart=/usr/bin/python3 __HCMA_REPO__/arquitectura/dashboard/app.py
 
-Environment=HCMA_DASH_PORT=8787
+EnvironmentFile=/etc/hcma/dash.env
 Environment=HCMA_DASH_TELEMETRY_DB=__HCMA_REPO__/arquitectura/dashboard/telemetry.db
 # PRODUCCIÓN: store real del monitor (read-only, vía grupo hcma-audit)
 Environment=HCMA_DASH_MEMORY_DB=/var/lib/hcma-monitor/store/memoria.db
