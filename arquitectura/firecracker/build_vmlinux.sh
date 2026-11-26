@@ -44,6 +44,8 @@ echo "==> configurando (defconfig, sin módulos, virtio/vsock/ext4 built-in) ...
 make defconfig
 scripts/config \
   --disable MODULES \
+  --disable DEBUG_INFO \
+  --disable DEBUG_INFO_BTF \
   --enable VIRTIO \
   --enable VIRTIO_PCI \
   --enable VIRTIO_BLK \
