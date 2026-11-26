@@ -114,7 +114,7 @@ ssh $SSH_OPTS ubuntu@localhost 'bash /tmp/provision.sh'
 echo ""
 echo ""
 echo "==> TEST COMPLETO =="
-echo "    Dashboard:   https://localhost:${DASH_FWD}/   (aceptá el certificado autofirmado)
+echo "    Dashboard:   https://localhost:${DASH_FWD}/   (aceptá el certificado autofirmado)"
 echo "    SSH a la VM: ssh -p $SSH_PORT ubuntu@localhost"
 echo "    log:         tail -f /var/log/hcma-install.log   (dentro de la VM)"
 echo ""
