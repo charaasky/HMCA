@@ -26,11 +26,22 @@ id hcma-monitor >/dev/null 2>&1 && ok "hcma-monitor (uid $(id -u hcma-monitor))"
 id hcma-proxy   >/dev/null 2>&1 && ok "hcma-proxy   (uid $(id -u hcma-proxy))"   || bad "hcma-proxy"
 getent group hcma-red >/dev/null 2>&1 && ok "grupo hcma-red presente" || bad "grupo hcma-red presente"
 
-runsc --version >/dev/null 2>&1 && ok "runsc (gVisor) instalado" || bad "runsc (gVisor) instalado"
+# Boundary de hardware: Firecracker reemplaza a gVisor. gVisor queda como legacy (informativo).
+[ -x /usr/bin/firecracker ] \
+  && ok "firecracker instalado (/usr/bin/firecracker)" || bad "firecracker instalado (/usr/bin/firecracker)"
+[ -f /var/lib/hcma-firecracker/vmlinux ] \
+  && ok "vmlinux huésped presente" || bad "vmlinux huésped presente (/var/lib/hcma-firecracker/vmlinux)"
+[ -f /var/lib/hcma-firecracker/rootfs.ext4 ] \
+  && ok "rootfs huésped presente" || bad "rootfs huésped presente (/var/lib/hcma-firecracker/rootfs.ext4)"
+runsc --version >/dev/null 2>&1 \
+  && ok "runsc (gVisor) presente (legacy)" \
+  || echo "  · gVisor legacy no instalado (esperable tras cutover a Firecracker)"
 
 systemctl is-enabled --quiet hcma-monitor.service  && ok "hcma-monitor  enabled" || bad "hcma-monitor  enabled"
 systemctl is-enabled --quiet hcma-proxy.service    && ok "hcma-proxy    enabled" || bad "hcma-proxy    enabled"
 systemctl is-enabled --quiet hcma-dashboard.service && ok "hcma-dashboard enabled" || bad "hcma-dashboard enabled"
+systemctl is-enabled --quiet hcma-firecracker.service && ok "hcma-firecracker enabled" || bad "hcma-firecracker enabled"
+systemctl is-enabled --quiet hcma-px-motor.service && ok "hcma-px-motor enabled" || bad "hcma-px-motor enabled"
 
 [ -f /etc/hcma/publica.pin ] && ok "pin (ancla de confianza) presente" || bad "pin presente"
 [ -f /var/lib/hcma-monitor/store/memoria.db ] \

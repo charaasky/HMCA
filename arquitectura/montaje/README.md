@@ -22,7 +22,7 @@ ruta (fuente única de verdad).
 ## Cómo montar
 
 ```bash
-cd /home/charasky/Documentos/HMC/arquitectura/montaje
+cd arquitectura/montaje   # desde la raíz del repo
 sudo sh montar.sh
 ```
 
@@ -68,12 +68,12 @@ curl -skS https://localhost:8787/api/components   # dashboard (más legible; TLS
 
 # Auditoría PUNTUAL de reconciliación (Opción A): cruza ejecuciones (proxy 997)
 # contra autorizaciones consumidas (nonces del monitor 999). Ambos append-only, UIDs distintos.
-sudo python3 /home/charasky/Documentos/HMC/arquitectura/scripts/auditar_reconciliacion.py
+sudo python3 arquitectura/scripts/auditar_reconciliacion.py   # desde la raíz del repo
 ```
 
 ## Prerrequisitos del host
 
 - Linux con `systemd`, `nftables`, `python3` (≥3.11) y `useradd/groupadd`.
 - `runsc` (gVisor) instalado (`runsc --version`).
-- `.deps` en `/home/charasky/Documentos/HMC/.deps` (PYTHONPATH para los scripts de firma).
+- `.deps` en la raíz del repo (`.deps`, PYTHONPATH para los scripts de firma).
 - Bundles gVisor construidos en `../gvisor/` (el manifiesto los congela por hash).

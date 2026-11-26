@@ -28,6 +28,8 @@ MONITOR_DROPIN="/etc/systemd/system/hcma-monitor.service.d/vsock.conf"
 paso() { echo ""; echo "================================================================"; echo " $1"; echo "================================================================"; }
 
 paso "[1/6] Preflight: dependencias del sistema"
+
+# ── Herramientas de runtime (obligatorias para los servicios) ──
 FALTANTES=""
 check_dep() {
   if command -v "$1" >/dev/null 2>&1; then
@@ -49,11 +51,74 @@ check_dep usermod   "${SHADOW_PKG}"
 check_dep nft       "${NFT_PKG}"
 check_dep curl      curl
 check_dep systemctl systemd
+
+# ── BTF del kernel: px-motor genera vmlinux.h desde /sys/kernel/btf/vmlinux ──
+if [ -f /sys/kernel/btf/vmlinux ]; then
+  echo "  ok: BTF del kernel (/sys/kernel/btf/vmlinux)"
+else
+  echo "  aviso: sin BTF (/sys/kernel/btf/vmlinux) — px-motor no podrá generar vmlinux.h"
+  echo "         (kernel con CONFIG_DEBUG_INFO_BTF=n; ver ERRORES.md)"
+fi
+
+# ── Build del kernel huésped (vmlinux) ──
+if [ -f /usr/include/libelf.h ] || [ -f /usr/include/libelf/libelf.h ]; then
+  echo "  ok: libelf (headers)"
+else
+  echo "  falta: libelf headers (paquete: ${LIBELF_PKG:-libelf-dev})"
+  FALTANTES="${FALTANTES} ${LIBELF_PKG:-libelf-dev}"
+fi
+BUILD_FALTANTE=0
+for t in gcc make bc bison flex tar xz; do
+  if command -v "$t" >/dev/null 2>&1; then
+    echo "  ok: $t (build vmlinux)"
+  else
+    echo "  falta: $t (build vmlinux; paquete en: ${BUILD_PKGS:-gcc make bc bison flex libelf-dev xz-utils})"
+    BUILD_FALTANTE=1
+  fi
+done
+if [ "${BUILD_FALTANTE}" -eq 1 ]; then
+  FALTANTES="${FALTANTES} ${BUILD_PKGS:-gcc make bc bison flex libelf-dev xz-utils}"
+fi
+
+# ── Build del rootfs ext4 (mmdebstrap: solo distros basadas en apt) ──
+case "${PKG_INSTALL:-}" in
+  apt-get*)
+    ROOTFS_FALTANTE=0
+    for t in mmdebstrap mkfs.ext4; do
+      if command -v "$t" >/dev/null 2>&1; then
+        echo "  ok: $t (build rootfs)"
+      else
+        echo "  falta: $t (build rootfs; paquete en: ${ROOTFS_PKGS:-mmdebstrap e2fsprogs})"
+        ROOTFS_FALTANTE=1
+      fi
+    done
+    if [ "${ROOTFS_FALTANTE}" -eq 1 ]; then
+      FALTANTES="${FALTANTES} ${ROOTFS_PKGS:-mmdebstrap e2fsprogs}"
+    fi
+    ;;
+  *)
+    echo "  aviso: build de rootfs necesita una distro apt (mmdebstrap). En ${DISTRO_ID} usá un rootfs prebuilt."
+    ;;
+esac
+
+# ── KVM / virtio-vsock (Firecracker) ──
 if [ -e /dev/kvm ]; then
   echo "  ok: /dev/kvm (KVM)"
 else
-  echo "  aviso: /dev/kvm ausente — Firecracker no podrá arrancar la microVM"
+  echo "  ⚠️  /dev/kvm ausente — Firecracker no podrá arrancar la microVM (habilitá VT-x/AMD-V o nested virt)"
 fi
+if [ -e /dev/vhost-vsock ]; then
+  echo "  ok: /dev/vhost-vsock (virtio-vsock)"
+else
+  echo "  ⚠️  /dev/vhost-vsock ausente — el transporte agente↔monitor por vsock no va a funcionar"
+fi
+if grep -qE '(^|[[:space:]])(vmx|svm)([[:space:]]|$)' /proc/cpuinfo; then
+  echo "  ok: virtualización por hardware (vmx/svm) presente"
+else
+  echo "  ⚠️  sin vmx/svm en /proc/cpuinfo — KVM no va a funcionar"
+fi
+
+# ── Instalar dependencias faltantes ──
 if [ -n "${FALTANTES}" ]; then
   if [ "${distro_ok}" -ne 0 ]; then
     echo "  No se auto-instalan dependencias: distro no soportada (${DISTRO_ID}). Instalalas a mano."
@@ -65,10 +130,29 @@ if [ -n "${FALTANTES}" ]; then
   fi
 fi
 
+# ── Artefactos de la microVM (vmlinux + rootfs.ext4) ──
+FC_DIR="${REPO}/arquitectura/firecracker"
+if [ -f "${FC_DIR}/vmlinux" ] && [ -f "${FC_DIR}/rootfs.ext4" ]; then
+  echo "  ok: vmlinux + rootfs.ext4 presentes en el repo (se desplegarán)"
+elif [ -f /var/lib/hcma-firecracker/vmlinux ] && [ -f /var/lib/hcma-firecracker/rootfs.ext4 ]; then
+  echo "  ok: vmlinux + rootfs.ext4 ya desplegados en /var/lib/hcma-firecracker"
+else
+  echo "  ⚠️  faltan vmlinux y/o rootfs.ext4 — Firecracker no podrá bootear sin ellos."
+  echo "     Generálos (el kernel tarda ~10-15 min):"
+  echo "       cd ${FC_DIR} && sudo sh build_vmlinux.sh && sudo sh build_rootfs_firecracker.sh"
+  echo "     O pasá artefactos ya compilados:"
+  echo "       sudo HCMA_VMLINUX=/ruta/vmlinux HCMA_ROOTFS=/ruta/rootfs.ext4 sh ${REPO}/arquitectura/instalar.sh"
+fi
+
 paso "[2/6] HCMA core (monitor / proxy / dashboard / firma)"
 sh "${REPO}/arquitectura/montaje/montar.sh"
 
 paso "[3/6] Firecracker (boundary de hardware)"
+# Si el repo trae los artefactos ya compilados, pasalos al deploy para que
+# "clone → instalar → andar" no exija compilar a mano. deploy.sh los conserva
+# si ya están en /var/lib/hcma-firecracker.
+if [ -f "${FC_DIR}/vmlinux" ]; then export HCMA_VMLINUX="${FC_DIR}/vmlinux"; fi
+if [ -f "${FC_DIR}/rootfs.ext4" ]; then export HCMA_ROOTFS="${FC_DIR}/rootfs.ext4"; fi
 sh "${REPO}/arquitectura/firecracker/deploy.sh" || echo "  ⚠️  Firecracker no se pudo desplegar (no bloquea el core)."
 
 paso "[4/6] px-motor (detección eBPF de escape, política firmada)"
@@ -163,4 +247,7 @@ echo "   Salud:      sudo sh ${REPO}/arquitectura/montaje/verificar.sh"
 echo ""
 echo " La ceremonia de CORTE de estado (checkpoint + store al monitor) sigue siendo manual:"
 echo " ver ${REPO}/arquitectura/montaje/README.md"
+echo ""
+echo " Requisitos + errores conocidos y cómo resolverlos:"
+echo "   ${REPO}/arquitectura/ERRORES.md"
 echo "================================================================================"

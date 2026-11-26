@@ -4,7 +4,7 @@
 intentos de escape en **señales observables**. Es la tercera capa de la arquitectura (contención),
 complementaria al monitor/proxy (gobernanza) y a la microVM (boundary de hardware).
 
-Vive en otro repo (`/home/charasky/Documentos/framework secure/laboratorio/motor-go`); acá está el
+Vive en otro repo (`github.com/charaasky/motor-go`); acá está el
 **despliegue** que lo integra a HCMA.
 
 ## Qué vigila y cómo
@@ -21,13 +21,13 @@ El sujeto por defecto es la microVM Firecracker: `system.slice/hcma-firecracker.
 ## Despliegue
 
 ```bash
-sudo sh /home/charasky/Documentos/HMC/arquitectura/px-motor/deploy.sh
+sudo sh arquitectura/px-motor/deploy.sh   # desde la raíz del repo
 ```
 
 O, todo junto, desde el orquestador:
 
 ```bash
-sudo sh /home/charasky/Documentos/HMC/arquitectura/instalar.sh
+sudo sh arquitectura/instalar.sh
 ```
 
 `deploy.sh` es **idempotente**: compila `px-motor` + `policygen`, ubica (o genera) la clave de
@@ -39,7 +39,7 @@ política, firma una política con `serial` monótono y `not_after`, instala el 
 
 | Variable | Default | Qué es |
 |---|---|---|
-| `PXMOTOR_SRC` | `…/framework secure/laboratorio/motor-go` | repo fuente del motor |
+| `PXMOTOR_SRC` | `/var/lib/px-motor/src` | repo fuente del motor (clonado de github.com/charaasky/motor-go) |
 | `PXMOTOR_CGROUP` | `system.slice/hcma-firecracker.service` | cgroup del sujeto |
 | `PXMOTOR_UID` | `995` | UID del sujeto |
 | `PXMOTOR_EXE` | `firecracker` | binario del sujeto |

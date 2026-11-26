@@ -9,6 +9,9 @@
 #   PKG_INSTALL   -> instala paquetes (sin confirmación)
 #   HEADERS_PKG   -> paquete de kernel headers
 #   GO_PKG, BPFTOOL_PKG, NFT_PKG, AUDIT_PKG, SS_PKG, SHADOW_PKG, PYTHON_PKG
+#   BUILD_PKGS    -> toolchain para compilar el kernel huésped (vmlinux)
+#   ROOTFS_PKGS   -> herramientas para construir el rootfs ext4 (mmdebstrap es solo Debian/Ubuntu)
+#   LIBELF_PKG    -> headers de libelf (build del kernel huésped)
 #   QEMU_PKGS     -> paquetes qemu + cloud-image-utils (para el host del test de VM)
 
 if [ -f /etc/os-release ]; then
@@ -32,6 +35,9 @@ case "$DISTRO_ID" in
     esac
     GO_PKG="golang-go"; BPFTOOL_PKG="bpftool"; NFT_PKG="nftables"; AUDIT_PKG="auditd"
     SS_PKG="iproute2"; SHADOW_PKG="passwd"; PYTHON_PKG="python3"
+    BUILD_PKGS="gcc make bc bison flex libelf-dev xz-utils"
+    ROOTFS_PKGS="mmdebstrap e2fsprogs"
+    LIBELF_PKG="libelf-dev"
     QEMU_PKGS="qemu-system-x86 qemu-utils cloud-image-utils"
     ;;
   # ── RHEL / Fedora (dnf) ────────────────────────────────────────────────
@@ -40,6 +46,9 @@ case "$DISTRO_ID" in
     PKG_INSTALL="dnf install -y"
     HEADERS_PKG="kernel-devel"; GO_PKG="golang"; BPFTOOL_PKG="bpftool"; NFT_PKG="nftables"
     AUDIT_PKG="audit"; SS_PKG="iproute"; SHADOW_PKG="shadow-utils"; PYTHON_PKG="python3"
+    BUILD_PKGS="gcc make bc bison flex elfutils-libelf-devel xz"
+    ROOTFS_PKGS=""
+    LIBELF_PKG="elfutils-libelf-devel"
     QEMU_PKGS="qemu-system-x86 qemu-img cloud-utils"
     ;;
   # ── Arch (pacman) ──────────────────────────────────────────────────────
@@ -48,6 +57,9 @@ case "$DISTRO_ID" in
     PKG_INSTALL="pacman -S --noconfirm"
     HEADERS_PKG="linux-headers"; GO_PKG="go"; BPFTOOL_PKG="bpftool"; NFT_PKG="nftables"
     AUDIT_PKG="audit"; SS_PKG="iproute2"; SHADOW_PKG="shadow"; PYTHON_PKG="python"
+    BUILD_PKGS="gcc make bc bison flex libelf xz"
+    ROOTFS_PKGS=""
+    LIBELF_PKG="libelf"
     QEMU_PKGS="qemu-system-x86 qemu-img"
     ;;
   # ── openSUSE (zypper) ──────────────────────────────────────────────────
@@ -56,6 +68,9 @@ case "$DISTRO_ID" in
     PKG_INSTALL="zypper --non-interactive install"
     HEADERS_PKG="kernel-devel"; GO_PKG="go"; BPFTOOL_PKG="bpftool"; NFT_PKG="nftables"
     AUDIT_PKG="audit"; SS_PKG="iproute2"; SHADOW_PKG="shadow"; PYTHON_PKG="python3"
+    BUILD_PKGS="gcc make bc bison flex libelf-devel xz"
+    ROOTFS_PKGS=""
+    LIBELF_PKG="libelf-devel"
     QEMU_PKGS="qemu-x86 qemu-tools"
     ;;
   # ── Alpine (apk) ───────────────────────────────────────────────────────
@@ -64,6 +79,9 @@ case "$DISTRO_ID" in
     PKG_INSTALL="apk add"
     HEADERS_PKG="linux-headers"; GO_PKG="go"; BPFTOOL_PKG="bpftool"; NFT_PKG="nftables"
     AUDIT_PKG="audit"; SS_PKG="iproute2"; SHADOW_PKG="shadow"; PYTHON_PKG="python3"
+    BUILD_PKGS="gcc make bc bison flex elfutils-dev xz"
+    ROOTFS_PKGS=""
+    LIBELF_PKG="elfutils-dev"
     QEMU_PKGS="qemu-system-x86_64 qemu-img"
     ;;
   # ── fallback por ID_LIKE ───────────────────────────────────────────────
@@ -73,22 +91,32 @@ case "$DISTRO_ID" in
         PKG_UPDATE="apt-get update"; PKG_INSTALL="apt-get install -y"
         HEADERS_PKG="linux-headers-generic"; GO_PKG="golang-go"; BPFTOOL_PKG="bpftool"
         NFT_PKG="nftables"; AUDIT_PKG="auditd"; SS_PKG="iproute2"; SHADOW_PKG="passwd"; PYTHON_PKG="python3"
+        BUILD_PKGS="gcc make bc bison flex libelf-dev xz-utils"
+        ROOTFS_PKGS="mmdebstrap e2fsprogs"
+        LIBELF_PKG="libelf-dev"
         QEMU_PKGS="qemu-system-x86 qemu-utils cloud-image-utils" ;;
       *rhel*|*fedora*)
         PKG_UPDATE="dnf check-update"; PKG_INSTALL="dnf install -y"
         HEADERS_PKG="kernel-devel"; GO_PKG="golang"; BPFTOOL_PKG="bpftool"
         NFT_PKG="nftables"; AUDIT_PKG="audit"; SS_PKG="iproute"; SHADOW_PKG="shadow-utils"; PYTHON_PKG="python3"
+        BUILD_PKGS="gcc make bc bison flex elfutils-libelf-devel xz"
+        ROOTFS_PKGS=""
+        LIBELF_PKG="elfutils-libelf-devel"
         QEMU_PKGS="qemu-system-x86 qemu-img cloud-utils" ;;
       *arch*)
         PKG_UPDATE="pacman -Sy"; PKG_INSTALL="pacman -S --noconfirm"
         HEADERS_PKG="linux-headers"; GO_PKG="go"; BPFTOOL_PKG="bpftool"
         NFT_PKG="nftables"; AUDIT_PKG="audit"; SS_PKG="iproute2"; SHADOW_PKG="shadow"; PYTHON_PKG="python"
+        BUILD_PKGS="gcc make bc bison flex libelf xz"
+        ROOTFS_PKGS=""
+        LIBELF_PKG="libelf"
         QEMU_PKGS="qemu-system-x86 qemu-img" ;;
       *)
         distro_ok=1
         PKG_UPDATE=""; PKG_INSTALL=""
         HEADERS_PKG=""; GO_PKG=""; BPFTOOL_PKG=""; NFT_PKG=""; AUDIT_PKG=""
-        SS_PKG=""; SHADOW_PKG=""; PYTHON_PKG=""; QEMU_PKGS="" ;;
+        SS_PKG=""; SHADOW_PKG=""; PYTHON_PKG=""; QEMU_PKGS=""
+        BUILD_PKGS=""; ROOTFS_PKGS=""; LIBELF_PKG="" ;;
     esac
     ;;
 esac

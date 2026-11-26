@@ -33,6 +33,8 @@ Health check: `sudo sh arquitectura/montaje/verificar.sh`.
 
 Uninstall: `sudo sh arquitectura/desinstalar.sh`.
 
+Troubleshooting: [`arquitectura/ERRORES.md`](arquitectura/ERRORES.md) — requisitos y errores conocidos con su solución.
+
 The installer auto-detects the Linux distro and uses the right package manager:
 Debian/Ubuntu (`apt`), Fedora/RHEL (`dnf`), Arch (`pacman`), openSUSE (`zypper`), Alpine (`apk`).
 

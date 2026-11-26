@@ -28,7 +28,7 @@ Es el mayor salto de seguridad disponible sin hardware dedicado.
 # kernel huésped mínimo (vmlinux) + rootfs ext4 mínimo con el agente + python.
 # Se pasan por argumento/env; si ya están en /var/lib/hcma-firecracker, deploy.sh los conserva.
 sudo HCMA_VMLINUX=/ruta/vmlinux HCMA_ROOTFS=/ruta/rootfs.ext4 \
-  sh /home/charasky/Documentos/HMC/arquitectura/firecracker/deploy.sh
+  sh arquitectura/firecracker/deploy.sh
 ```
 
 `deploy.sh` instala firecracker (apt), ubica kernel+rootfs en `/var/lib/hcma-firecracker/`, crea el
