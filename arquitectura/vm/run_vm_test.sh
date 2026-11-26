@@ -60,6 +60,10 @@ if [ ! -f "$IMAGE" ]; then
   wget -O "$IMAGE" "$IMAGE_URL"
 fi
 
+echo "==> apagando VM previa del test si existe (libera el lock de la imagen)"
+pkill -f "qemu-system-x86_64.*${VM_DIR}" 2>/dev/null || true
+sleep 1
+
 echo "==> redimensionando imagen a ${DISK_GB}G"
 qemu-img resize "$IMAGE" "${DISK_GB}G" >/dev/null
 
