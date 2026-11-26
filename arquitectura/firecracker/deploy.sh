@@ -151,11 +151,11 @@ paso "[5/6] Reglas auditd (señal fuera de banda)"
 if [ -d /etc/audit/rules.d ]; then
   install -m 0640 "${REPO}/arquitectura/firecracker/auditd.rules" /etc/audit/rules.d/hcma.rules
   if command -v augenrules >/dev/null 2>&1; then
-    augenrules --load
-    echo "  reglas cargadas con augenrules --load"
+    # Los watches -w fallan si la ruta aún no existe (p.ej. deploy.sh suelto sin montar el core).
+    # Eso es esperable y NO debe tumbar el deploy: la señal fuera de banda es defensa en profundidad.
+    augenrules --load || echo "  ⚠️  algunas reglas auditd no cargaron (rutas aún no montadas; se cargan en el flujo completo)"
   elif command -v auditctl >/dev/null 2>&1; then
-    auditctl -R /etc/audit/rules.d/hcma.rules
-    echo "  reglas cargadas con auditctl -R"
+    auditctl -R /etc/audit/rules.d/hcma.rules || echo "  ⚠️  algunas reglas auditd no cargaron (rutas aún no montadas)"
   else
     echo "  ⚠️  auditd instalado pero augenrules/auditctl no disponible" >&2
   fi
