@@ -1,0 +1,90 @@
+# ── Secretos y entorno ──────────────────────────────────────────────
+.env
+*.env
+.env.*
+
+# ── Python ──────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# ── Repositorios embebidos / no propios ─────────────────────────────
+agentic-context-management/
+
+# ── Dependencias vendidas / cachés (NO versionar) ───────────────────
+.deps/
+.pipcache/
+.piptmp/
+.hf_cache/
+
+# ── Datos / artefactos JSON (cachés y resultados, regenerables) ─────
+# En este proyecto los .json/.jsonl/.parquet son cachés o resultados de
+# experimentos, no código fuente. Si hay algún dataset fuente irreemplazable,
+# re-incluirlo explícitamente aquí con `!ruta`.
+*.json
+*.jsonl
+*.parquet
+
+# EXCEPCIÓN: los config.json de los bundles gVisor son FUENTE de seguridad (spec OCI:
+# mounts, noexec, caps, network=none). Irreemplazables, deben versionarse.
+!arquitectura/gvisor/bundle/config.json
+!arquitectura/gvisor/bundle-python/config.json
+!arquitectura/gvisor/bundle-kicad/config.json
+!arquitectura/gvisor/bundle-agente/config.json
+!arquitectura/gvisor/bundle-lean/config.json
+!arquitectura/firecracker/config.json
+!arquitectura/manifiesto_sistema.json
+
+# Probes de benchmark (InjecAgent, terceros, MIT) NO se versionan: se nombran en README.md
+# y el tester los descarga del repo upstream. Los loaders (build_*.py) sí se versionan.
+
+# ── Bases de datos SQLite (runtime, regenerables) ───────────────────
+*.db
+*.sqlite
+*.sqlite3
+*-wal
+*-shm
+
+# ── Dashboard: certificado/clave autofirmados + base de usuarios (runtime) ──
+arquitectura/dashboard/hcma-dashboard.crt
+arquitectura/dashboard/hcma-dashboard.key
+arquitectura/dashboard/auth.db
+arquitectura/dashboard/auth.db-wal
+arquitectura/dashboard/auth.db-shm
+arquitectura/dashboard/llm_config.json
+arquitectura/dashboard/llm_config.json.tmp
+
+# ── Logs ────────────────────────────────────────────────────────────
+*.log
+
+# ── Artefactos LaTeX / PDF / binarios ───────────────────────────────
+# Los .tex de resultados son regenerables por el orquestador (no son fuente)
+arquitectura/resultados/*.tex
+arquitectura/resultados/*.svg
+*.aux
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.pdf
+*.png
+*.jpg
+*.jpeg
+
+# ── OS / editor ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── Paquete OSF entregable (workshop HCMA) ──────────────────────────
+# El manifest.json es el registro de integridad (SHA-256) del paquete y el PDF
+# el entregable final; ambos son fuente del envío, no artefactos regenerables.
+!hcma_workshop/entregables/manifest.json
+!hcma_workshop/entregables/paper/paper_hcma_workshop.pdf

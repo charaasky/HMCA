@@ -1,0 +1,44 @@
+# hcma-monitor.service — Proceso monitor daemon (UID hcma-monitor, dueño del estado).
+#
+# Fase 2 (extraer el monitor a proceso separado). FAIL-CLOSED (dictamen Fable,
+# fable_failclosed_monitor_fable.md): el monitor crea su PROPIO socket en runtime (no hay
+# socket-activation). Si el monitor muere, el kernel cierra el listener y NO hay nada que lo
+# reviva. El agente se ata con BindsTo= (muerte inesperada del monitor => el agente se detiene).
+#
+# Sin triggers (socket/path/timer/D-Bus), sin Restart (default no). El humano decide el reinicio.
+
+[Unit]
+Description=HCMA monitor (proceso separado dueño del estado, fail-closed)
+
+[Service]
+Type=simple
+User=hcma-monitor
+Group=hcma-monitor
+# Necesario para que el monitor pueda chown el socket de gobernanza al grupo hcma-audit
+# (sin esto, el socket queda 0600 y el dashboard no puede conectar).
+SupplementaryGroups=hcma-audit hcma-vsock
+
+# Entrypoint del monitor daemon (verifica checkpoint, carga store+nonces+epoca, crea su socket
+# y atiende el IPC). El socket vive en /run/hcma-monitor.sock SOLO mientras el proceso corre.
+ExecStart=/usr/bin/python3 /var/lib/hcma-monitor/lib/hcma_monitor_daemon.py
+
+Environment=PYTHONPATH=/var/lib/hcma-monitor/lib
+Environment=HCMA_NONCE_LOG=/var/lib/hcma-monitor/nonces.log
+Environment=HCMA_EPOCA_FILE=/var/lib/hcma-monitor/epoca
+Environment=HCMA_MONITOR_SOCK=/run/hcma/monitor.sock
+
+# Directorio /run/hcma (0711) propiedad del monitor, para que cree su socket ahí y sea transitable
+# por hcma-audit (dashboard). systemd lo crea con el UID correcto y lo limpia al parar el servicio.
+RuntimeDirectory=hcma
+RuntimeDirectoryMode=0711
+
+# Límites de recursos (anti-DoS sobre el monitor).
+MemoryMax=256M
+TasksMax=32
+NoNewPrivileges=yes
+
+# FAIL-CLOSED: nunca auto-reiniciar. Un crash deja el sistema inactivo; lo levanta el humano.
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

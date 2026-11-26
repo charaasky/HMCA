@@ -1,0 +1,50 @@
+# hcma-dashboard.service — Dashboard de observabilidad/auditoría HCMA (READ-ONLY + acciones humanas).
+#
+# PRODUCCIÓN:
+#   - Lee la memoria REAL del monitor (/var/lib/hcma-monitor/store/memoria.db) en modo read-only
+#     (memoria_sqlite read_only=True). El dashboard NUNCA escribe el store.
+#   - El botón "Rehabilitar" envía el flujo humano (revisar→parchear→rehabilitar) al MONITOR por
+#     socket (HCMA_MONITOR_SOCK), que es el ÚNICO escritor. No hay escritura directa desde el
+#     dashboard.
+#
+# REQUISITOS ROOT (ver PRODUCCION.md):
+#   1. Grupo hcma-audit con LECTURA sobre /var/lib/hcma-monitor/store (el store es 0700 de 999).
+#   2. charasky (o el usuario del dashboard) en hcma-audit (SupplementaryGroups).
+#   3. El socket del monitor accesible por hcma-audit (RuntimeDirectoryMode=0750 + socket 0660),
+#      para que el dashboard pueda reenviar las acciones humanas.
+#
+# Sin esos permisos el dashboard arranca pero (a) no lee el store y (b) "Rehabilitar" devuelve
+# error de conexión (fail-closed), sin comprometer la seguridad.
+
+[Unit]
+Description=HCMA dashboard (observabilidad, auditoría y acciones humanas)
+After=hcma-monitor.service hcma-proxy.service
+
+[Service]
+Type=simple
+User=charasky
+Group=charasky
+# grupo de auditoría: lectura del store del monitor + conexión al socket de gobernanza
+SupplementaryGroups=hcma-audit
+WorkingDirectory=/home/charasky/Documentos/HMC/arquitectura/dashboard
+
+ExecStart=/usr/bin/python3 /home/charasky/Documentos/HMC/arquitectura/dashboard/app.py
+
+Environment=HCMA_DASH_PORT=8787
+Environment=HCMA_DASH_TELEMETRY_DB=/home/charasky/Documentos/HMC/arquitectura/dashboard/telemetry.db
+# PRODUCCIÓN: store real del monitor (read-only, vía grupo hcma-audit)
+Environment=HCMA_DASH_MEMORY_DB=/var/lib/hcma-monitor/store/memoria.db
+# Socket de GOBERNANZA del monitor (separado del socket del agente; solo ops humanas)
+Environment=HCMA_MONITOR_SOCK=/run/hcma/gobernanza.sock
+# Ledgers de reconciliación (solo LECTURA, vía grupo hcma-audit)
+Environment=HCMA_DASH_EJECUCION_LEDGER=/var/lib/hcma-proxy/ledger/ejecucion.log
+Environment=HCMA_DASH_AUTORIZACION_LEDGER=/var/lib/hcma-monitor/nonces.log
+
+NoNewPrivileges=yes
+
+# Disponibilidad: se reinicia solo si se cae (no es un componente fail-closed de seguridad).
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

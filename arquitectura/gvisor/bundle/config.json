@@ -1,0 +1,102 @@
+{
+  "ociVersion": "1.2.1",
+  "process": {
+    "terminal": false,
+    "user": {
+      "uid": 101,
+      "gid": 981,
+      "additionalGids": []
+    },
+    "args": [
+      "/bin/sh",
+      "/usr/local/bin/payload_hostil.sh"
+    ],
+    "env": [
+      "PATH=/usr/bin:/bin",
+      "HOME=/tmp",
+      "TMPDIR=/tmp"
+    ],
+    "cwd": "/tmp",
+    "capabilities": {
+      "bounding": [],
+      "effective": [],
+      "inheritable": [],
+      "permitted": [],
+      "ambient": []
+    },
+    "rlimits": [
+      { "type": "RLIMIT_CPU", "hard": 30, "soft": 30 },
+      { "type": "RLIMIT_AS", "hard": 1073741824, "soft": 1073741824 },
+      { "type": "RLIMIT_FSIZE", "hard": 268435456, "soft": 268435456 },
+      { "type": "RLIMIT_NOFILE", "hard": 256, "soft": 256 },
+      { "type": "RLIMIT_NPROC", "hard": 64, "soft": 64 }
+    ],
+    "noNewPrivileges": true
+  },
+  "root": {
+    "path": "rootfs",
+    "readonly": true
+  },
+  "hostname": "hcma-agent-sandbox",
+  "mounts": [
+    {
+      "destination": "/proc",
+      "type": "proc",
+      "source": "proc",
+      "options": ["nosuid", "noexec", "nodev"]
+    },
+    {
+      "destination": "/dev",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": ["nosuid", "strictatime", "mode=755", "size=65536k"]
+    },
+    {
+      "destination": "/dev/pts",
+      "type": "devpts",
+      "source": "devpts",
+      "options": ["nosuid", "noexec", "newinstance", "ptmxmode=0666", "mode=0620"]
+    },
+    {
+      "destination": "/dev/shm",
+      "type": "tmpfs",
+      "source": "shm",
+      "options": ["nosuid", "noexec", "nodev", "mode=1777", "size=65536k"]
+    },
+    {
+      "destination": "/sys",
+      "type": "sysfs",
+      "source": "sysfs",
+      "options": ["nosuid", "noexec", "nodev", "ro"]
+    },
+    {
+      "destination": "/tmp",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": ["nosuid", "nodev", "noexec", "size=67108864"]
+    }
+  ],
+  "linux": {
+    "resources": {
+      "memory": {
+        "limit": 536870912,
+        "swap": 0
+      },
+      "cpu": {
+        "shares": 64
+      },
+      "pids": {
+        "limit": 64
+      }
+    },
+    "namespaces": [
+      { "type": "pid" },
+      { "type": "network" },
+      { "type": "ipc" },
+      { "type": "uts" },
+      { "type": "mount" }
+    ],
+    "maskedPaths": [],
+    "readonlyPaths": []
+  }
+}

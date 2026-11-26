@@ -1,0 +1,19 @@
+# rootfs generado con mmdebstrap (voluminoso, root-owned, reproducible desde el script)
+rootfs/
+bundle/rootfs/
+bundle-mem/
+bundle-pos/
+bundle-noexec/
+bundle-python/rootfs/
+bundle-kicad/rootfs/
+bundle-lean/rootfs/
+
+# binarios recompilados (ngspice mínimo, generado por build_ngspice.sh)
+artifacts/
+
+# binario de prueba compilado (test_noexec.c)
+test_noexec_static
+
+# artefactos de build
+*.zstd
+*.tar.bz2

@@ -1,0 +1,49 @@
+# auditd.rules — HCMA: señal FUERA DE BANDA (auditoría del kernel) sobre el sandbox.
+#
+# Estas reglas hacen que el kernel emita eventos auditd para las syscalls del sandbox que
+# indican un intento de escape, INDEPENDIENTE del Sentry (gVisor) o del VMM (Firecracker).
+# Si el Sentry/VMM se compromete, auditd sigue viendo las syscalls REALES del proceso host
+# (`runsc`/gofer o `firecracker`). Alimenta a `observador_audit.py` (parsea `avc: denied` y
+# `syscall ... success=no`) → `incidentes.registrar` + bloqueo.
+#
+# Los vectores vigilados:
+#   1. Red      — el sandbox NO tiene red (--network=none / network-interfaces vacío). Cualquier
+#                 connect/socket/sendto/recvfrom desde runsc/firecracker/gofer es escape/exfiltración.
+#   2. Secretos — el guest NUNCA debe tocar la clave del firmante ni el estado del monitor/proxy.
+#                 Son watches de paths (independientes del binario: cubren también al gofer).
+#   3. Privs    — escalada de privilegios (setuid/setgid/capset). NO se audita mount/unshare/ptrace
+#                 sobre runsc porque runsc los usa LEGÍTIMAMENTE al montar el sandbox; la detección
+#                 de esos vectores dentro del guest la hace vigilancia_gvisor (log runsc --strace).
+#
+# INSTALAR (persistente, sobrevive reinicios):
+#   sudo install -m 0640 arquitectura/firecracker/auditd.rules /etc/audit/rules.d/hcma.rules
+#   sudo augenrules --load          # regenera /etc/audit/audit.rules y recarga
+#   sudo auditctl -l                # verifica
+#
+# CARGAR EN CALIENTE (sin reiniciar auditd, no persistente):
+#   sudo auditctl -R arquitectura/firecracker/auditd.rules
+#
+# QUITAR (limpieza de reglas HCMA):
+#   sudo auditctl -D                # borra todas las reglas (¡atención: también las del sistema)
+#   # o, quirúrgico: sudo auditctl -W ... -p ... -k hcma_red  (según key)
+
+# ---- 1. Red: escape/exfiltración desde el sandbox (runsc y firecracker/gofer) ----------------
+# El gofer de gVisor es el MISMO binario runsc (modo gofer), por eso `exe=/usr/bin/runsc` cubre
+# ambos. firecracker hace el I/O del guest (virtio) como proceso host, por eso también se cubre.
+-a always,exit -F arch=b64 -F exe=/usr/bin/runsc -S connect -S socket -S sendto -S recvfrom -k hcma_red
+-a always,exit -F arch=b64 -F exe=/usr/bin/firecracker -S connect -S socket -S sendto -S recvfrom -k hcma_red
+
+# ---- 2. Secretos/estado HCMA: el guest nunca debe tocarlos ------------------------------------
+# Watches de paths (independientes del binario): cubren runsc, gofer, firecracker y cualquier
+# proceso host que intente acceder al estado HCMA. La privada del firmante es la joya de la corona.
+-w /var/lib/hcma-signer/humano_ed25519.key -p rwxa -k hcma_secretos
+-w /etc/hcma -p rwxa -k hcma_secretos
+-w /var/lib/hcma-monitor -p rwxa -k hcma_secretos
+-w /var/lib/hcma-proxy -p rwxa -k hcma_secretos
+
+# ---- 3. Escalada de privilegios desde el sandbox ----------------------------------------------
+# setuid/setgid/capset son ilegítimos DENTRO del guest (caps 0). Si aparecen en el host desde el
+# binario del sandbox, es un intento de escalada. (mount/unshare/ptrace se excluyen por ruido
+# legítimo de runsc al armar el sandbox.)
+-a always,exit -F arch=b64 -F exe=/usr/bin/runsc -S setuid -S setgid -S capset -k hcma_priv
+-a always,exit -F arch=b64 -F exe=/usr/bin/firecracker -S setuid -S setgid -S capset -k hcma_priv

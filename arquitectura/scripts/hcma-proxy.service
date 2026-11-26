@@ -1,0 +1,47 @@
+# hcma-proxy.service — Proxy-red de egreso (UID hcma-proxy, dueño de la red de egreso).
+#
+# Diseño A (DISENO_RED_MCP.md): el proxy separa la red del monitor. NO toca el store ni la clave.
+# Recibe SOLO intents ya decididos del monitor por socket Unix con SO_PEERCRED==hcma-monitor.
+#
+# FAIL-CLOSED (dictamen Fable): crea su PROPIO socket en runtime (no socket-activation). Si el
+# proxy muere, el kernel cierra el listener y no hay reactivación silenciosa. Restart=no.
+
+[Unit]
+Description=HCMA proxy-red de egreso (proceso separado dueño de la red)
+
+[Service]
+Type=simple
+User=hcma-proxy
+# Grupo hcma-red: el socket nace con este grupo para que el MONITOR (también en hcma-red)
+# pueda conectar. La autorización real del par es por SO_PEERCRED==999 (hcma-proxy daemon), no
+# solo por el permiso de grupo.
+Group=hcma-red
+
+# Entrypoint del proxy: crea el socket /run/hcma-proxy.sock, verifica SO_PEERCRED del par y
+# ejecuta el egreso HTTP/HTTPS (solo unicast global, TLS siempre, sin redirects).
+ExecStart=/usr/bin/python3 /var/lib/hcma-proxy/lib/hcma_proxy_daemon.py
+
+Environment=PYTHONPATH=/var/lib/hcma-proxy/lib
+Environment=HCMA_PROXY_SOCK=/run/hcma-proxy/proxy.sock
+Environment=HCMA_MONITOR_UID=999
+Environment=HCMA_EJECUCION_LEDGER=/var/lib/hcma-proxy/ledger/ejecucion.log
+
+# Directorio /run para el socket. 0750 (dueño proxy, grupo hcma-red) para que el monitor
+# pueda atravesarlo hasta el socket. La autorización real del par es SO_PEERCRED==999.
+RuntimeDirectory=hcma-proxy
+RuntimeDirectoryMode=0750
+
+# Límites de recursos (anti-DoS sobre el proxy de red).
+MemoryMax=128M
+TasksMax=16
+NoNewPrivileges=yes
+
+# Red: el proxy SÍ necesita red de egreso (es su razón de ser). El firewall real de egreso
+# (solo unicast global + DNS al resolver) lo aplica el código (hcma_proxy._ip_permitida) y,
+# para produccion, nftables por UID hcma-proxy (pendiente, documentado en DISENO_RED_MCP.md).
+
+# FAIL-CLOSED: nunca auto-reiniciar.
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

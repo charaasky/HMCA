@@ -1,0 +1,77 @@
+# hcma-firecracker.service — Unidad systemd que lanza la microVM del agente en Firecracker (KVM).
+#
+# Reemplaza a hcma-agent-sandbox.service (gVisor/runsc). Firecracker corre el guest en modo
+# invitado real (ring −1) vía KVM: escapar exige un bug del VMM/KVM, no del Sentry user-space.
+# Es el mayor salto de seguridad disponible sin hardware dedicado.
+#
+# Dictamen Fable (fail-closed): el VMM (firecracker) corre en foreground y es gestionado por
+# systemd. No hay socket-activation ni Restart: si la microVM cae, lo decide el monitor/humano,
+# no systemd.
+#
+# PROPAGACIÓN DE LA MUERTE: si el monitor muere, el agente debe detenerse (BindsTo). El monitor
+# es el dueño del UDS /run/hcma/vsock.sock; si el monitor cae, el listener desaparece y firecracker
+# ya no puede forwardear el vsock → el agente queda sin canal. BindsTo fuerza el apagado conjunto.
+#
+# El VMM corre como usuario NO-root hcma-firecracker (grupos kvm + hcma-vsock): /dev/kvm y
+# /dev/vhost-vsock son 660 root:kvm (acceso por grupo, sin capability), y el UDS del vsock es
+# 0660 hcma-vsock (creado por el monitor). El proceso DENTRO de la VM corre como UID 101
+# (hcma-agent), definido en el rootfs, no acá.
+#
+# Límites de recursos nativos (anti-DoS) sobre toda la microVM (matching hcma-agent-sandbox):
+#   MemoryMax  (anti globo de memoria)  = 512M  (coincide con mem_size_mib del config.json)
+#   MemoryHigh = 384M
+#   CPUQuota   (anti quema de CPU)       = 200%
+#   TasksMax   (anti fork bomb)          = 64
+#
+# La contención REAL del guest la da KVM + rootfs read-only + sin red (config.json); los límites
+# de systemd son anti-DoS sobre el proceso VMM del host.
+
+[Unit]
+Description=HCMA agent microVM (Firecracker/KVM, boundary de hardware)
+Documentation=file:///home/charasky/Documentos/HMC/arquitectura/firecracker/README.md
+Requires=hcma-monitor.service
+After=hcma-monitor.service
+BindsTo=hcma-monitor.service
+
+[Service]
+Type=simple
+
+# Entrypoint: lanzar.py verifica binario+config y arranca firecracker en foreground.
+# (No es systemd socket-activation: el UDS del vsock lo crea el MONITOR, no firecracker.)
+ExecStart=/usr/bin/python3 /var/lib/hcma-firecracker/lanzar.py
+
+Environment=HCMA_FIRECRACKER=/usr/bin/firecracker
+
+# NO-root: Firecracker corre como usuario dedicado hcma-firecracker. Necesita:
+#   - kvm        -> /dev/kvm y /dev/vhost-vsock (660 root:kvm).
+#   - hcma-vsock -> conectar al UDS /run/hcma/vsock.sock (0660 hcma-vsock, creado por el monitor).
+# Sin capacidades: el acceso a esos dispositivos es por GRUPO, no por capability.
+User=hcma-firecracker
+Group=hcma-firecracker
+SupplementaryGroups=kvm hcma-vsock
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Directorio writable para el socket de API de Firecracker (ProtectSystem=strict deja /run
+# read-only; RuntimeDirectory crea /run/hcma-firecracker writable para el api-sock).
+RuntimeDirectory=hcma-firecracker
+RuntimeDirectoryMode=0750
+
+# Límites de recursos nativos (anti-DoS) sobre el proceso VMM del host.
+MemoryMax=512M
+MemoryHigh=384M
+CPUQuota=200%
+TasksMax=64
+
+# FAIL-CLOSED: nunca auto-reiniciar. Si la microVM cae, lo decide el monitor/humano.
+Restart=no
+
+# El home del humano y la clave del firmante no deben ser visibles para el VMM (defensa en
+# profundidad). /var/lib/hcma-firecracker (kernel+rootfs) es de SOLO LECTURA para firecracker.
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

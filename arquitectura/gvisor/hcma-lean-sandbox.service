@@ -1,0 +1,44 @@
+# hcma-lean-sandbox.service — Unidad systemd que corre el VERIFICADOR FORMAL (Lean) en gVisor.
+#
+# Dictamen Fable 5.2 (fable_lean_fable.md) + hallazgo de cgroups (IMPLEMENTACION_gvisor_sandbox.md):
+# gVisor NO aplica linux.resources.memory/pids.limit (solo accounting). Por eso el límite de
+# memoria REAL va acá como límite nativo de systemd (cgroup) sobre todo el sandbox:
+#   MemoryMax  (anti globo de memoria)  = 2G  (core-only + LEAN_NUM_THREADS=1)
+#   MemoryHigh = 1.5G
+#   CPUQuota   (anti quema de CPU)       = 200% (2 núcleos)
+#   TasksMax   (anti fork bomb)          = 64
+#
+# El bundle y los args son FIJOS (no parametrizables). El archivo candidato se escribe en
+# /var/lib/hcma-lean/work (bind-mount a /work en config.json) antes de arrancar la unidad.
+# El proceso adentro corre como UID 101 (hcma-agent), definido en config.json.
+#
+# El monitor solo puede arrancar/parar esta unidad (y escribir el candidato en el work dir),
+# nunca inyectar args.
+
+[Unit]
+Description=HCMA Lean formal verifier sandbox (gVisor/runsc)
+Documentation=file:///home/charasky/Documentos/HMC/arquitectura/PENDIENTE_lean_cgroup_lean4checker.md
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+
+# Bundle y args FIJOS. El candidato vive en /var/lib/hcma-lean/work/Candidato.lean (bind-mount).
+ExecStart=/usr/bin/runsc --network=none run --bundle=/home/charasky/Documentos/HMC/arquitectura/gvisor/bundle-lean hcma-lean-sandbox
+
+# Límites de recursos nativos (cgroup) — cierran el hueco de cgroups de gVisor.
+MemoryMax=2G
+MemoryHigh=1536M
+CPUQuota=200%
+TasksMax=64
+
+# Nunca reiniciar automáticamente.
+Restart=no
+
+# El home del humano y la clave del firmante no deben ser visibles para el wrapper.
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

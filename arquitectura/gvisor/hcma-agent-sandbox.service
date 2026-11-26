@@ -1,0 +1,52 @@
+# hcma-agent-sandbox.service — Unidad systemd que lanza el agente en gVisor (runsc).
+#
+# Dictamen de Fable (gvisor): "Ni el monitor como padre ni un wrapper con privilegios. Usá una
+# unidad systemd con bundle y argumentos fijos, sin nada parametrizable por el monitor ni por el
+# agente. El monitor solo puede arrancar y parar esa unidad. Los límites de systemd te dan además
+# una capa extra de recursos sobre todo el sandbox."
+#
+# Hallazgo de cgroups (ver IMPLEMENTACION_gvisor_sandbox.md): gVisor NO aplica
+# linux.resources.memory/pids.limit (solo accounting). Por eso los límites de recursos REALES
+# van acá, como límites nativos de systemd sobre el sandbox completo:
+#   MemoryMax  (anti globo de memoria)  = 512M
+#   CPUQuota   (anti quema de CPU)       = 200% (2 núcleos)
+#   TasksMax   (anti fork bomb)          = 64
+#
+# NOTA de diseño: NO se añade ProtectSystem/ReadOnlyPaths/CapabilityBoundingSet hardcore al
+# wrapper. runsc necesita privilegios en el host para montar namespaces/sandbox; la contención
+# REAL la da gVisor adentro (verificado por test_contencion_host.sh). Endurecer el wrapper acá
+# rompería runsc y duplicaría lo que gVisor ya hace mejor. El valor del wrapper son los límites
+# de recursos (anti-DoS), no el aislamiento.
+#
+# El bundle y los args son FIJOS (no parametrizables). El proceso adentro corre como UID 101
+# (hcma-agent), definido en config.json, no acá.
+#
+# NO habilitar todavía: esta unidad es la pieza de la Fase 1 (infra) que se integra con el agente
+# real recién en la Fase 3. Por ahora es el esqueleto verificado con payload hostil.
+
+[Unit]
+Description=HCMA agent sandbox (gVisor/runsc)
+Documentation=file:///home/charasky/Documentos/HMC/arquitectura/IMPLEMENTACION_gvisor_sandbox.md
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+
+# Bundle y args FIJOS (el payload real del agente se define en config.json cuando se integre).
+ExecStart=/usr/bin/runsc --network=none run --bundle=/home/charasky/Documentos/HMC/arquitectura/gvisor/bundle hcma-agent-sandbox
+
+# Límites de recursos nativos (anti-DoS) — cierran el hueco de cgroups de gVisor.
+MemoryMax=512M
+MemoryHigh=384M
+CPUQuota=200%
+TasksMax=64
+
+# Nunca reiniciar automáticamente: si el sandbox cae, lo decide el monitor/humano, no systemd.
+Restart=no
+
+# El home del humano y la clave del firmante no deben ser visibles NI siquiera para el wrapper
+# (defensa en profundidad mínima, sin romper runsc).
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

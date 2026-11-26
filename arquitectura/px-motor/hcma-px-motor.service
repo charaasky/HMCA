@@ -1,0 +1,45 @@
+# hcma-px-motor.service — detector eBPF de escape de la microVM (política firmada, fail-closed).
+#
+# px-motor vigila el sujeto (el VMM Firecracker, cgroup system.slice/hcma-firecracker.service)
+# desde el HOST con eBPF. Enforza una política runtime firmada (Ed25519, dominio separado) y
+# emite reglas de escape ESCAPE_UID / ESCAPE_EXEC / ESCAPE_CGROUP_MIGRATION, con anti-rollback
+# del serial. Si la política es inválida/vencida/sin selector, NO arranca (fail-closed).
+#
+# Corre como root (eBPF requiere CAP_BPF/CAP_PERFMON); el sujeto (microVM) no puede tocarlo:
+# el binario, la política y el estado son root-only y viven fuera del alcance del guest.
+#
+# Ciclo de vida atado a la microVM: si Firecracker cae, no hay sujeto que vigilar, así que
+# px-motor se detiene con él (BindsTo). Si Firecracker no arranca, px-motor no arranca (Requires).
+
+[Unit]
+Description=HCMA px-motor — detector eBPF de escape de la microVM (política firmada)
+Documentation=file:///home/charasky/Documentos/HMC/arquitectura/px-motor/README.md
+Requires=hcma-firecracker.service
+After=hcma-firecracker.service
+BindsTo=hcma-firecracker.service
+
+[Service]
+Type=simple
+
+ExecStart=/usr/local/bin/px-motor \
+  -policy /var/lib/px-motor/policy.json \
+  -policy-state /var/lib/px-motor/policy.serial \
+  -output /var/lib/px-motor/alerts.jsonl
+
+# eBPF: sin límite de memoria bloqueada (memlock). El resto de recursos los acota systemd.
+LimitMEMLOCK=infinity
+
+# Reiniciar solo ante caídas (no ante fail-closed: una política inválida no debe hacer loop).
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+# El detector solo necesita LEER /proc, /sys/fs/cgroup y escribir en /var/lib/px-motor.
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/px-motor
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

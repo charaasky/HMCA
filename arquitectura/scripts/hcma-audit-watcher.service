@@ -1,0 +1,42 @@
+# hcma-audit-watcher.service — watcher de la señal FUERA DE BANDA (auditd) → monitor.
+#
+# Hace tail de /var/log/audit/audit.log y, por cada línea nueva, la reporta al MONITOR por el
+# socket regular del agente (/run/hcma/monitor.sock) con la op `procesar_log_audit`
+# (observador_audit.py: parsea `avc: denied {..}` y `syscall .. success=no` → incidentes).
+#
+# Es un proceso del HOST (TCB), FUERA del sandbox: el guest NO puede manipular auditd. Si el
+# Sentry/VMM se compromete, este watcher sigue viendo las syscalls reales del proceso runsc/
+# firecracker/gofer. A diferencia del monitor (fail-closed) o del sandbox (fail-closed), este es
+# un componente de DETECCIÓN: si se cae, la contención estática sigue vigente pero se pierde
+# observabilidad, por eso Restart=on-failure (restaurar detección, no auto-revivir contención).
+#
+# Corre como root (igual que runsc/firecracker, los otros componentes del TCB del host): necesita
+# leer /var/log/audit/audit.log (root:adm 0640) y conectar al socket 0600 del monitor. Es un
+# proceso de args FIJOS (no parametrizable por el monitor ni por el agente).
+
+[Unit]
+Description=HCMA auditd watcher (señal fuera de banda → monitor)
+After=hcma-monitor.service
+BindsTo=hcma-monitor.service
+
+[Service]
+Type=simple
+
+# Args FIJOS: tail del log de auditd, clasificador audit, identidad estable "host".
+ExecStart=/usr/bin/python3 /home/charasky/Documentos/HMC/arquitectura/scripts/observador_kernel.py --log /var/log/audit/audit.log --clasificador audit --agent-id host
+
+Environment=PYTHONPATH=/home/charasky/Documentos/HMC/.deps
+Environment=HCMA_MONITOR_SOCK=/run/hcma/monitor.sock
+
+# Límites de recursos (anti-DoS sobre el watcher).
+MemoryMax=64M
+TasksMax=16
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+# Detección: si se cae, restaurar la observabilidad (la contención es estática y sigue vigente).
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
