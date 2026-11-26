@@ -147,6 +147,10 @@ install -m 0644 "${SCRIPTS}/hcma-monitor.service"  /etc/systemd/system/hcma-moni
 install -m 0644 "${SCRIPTS}/hcma-proxy.service"    /etc/systemd/system/hcma-proxy.service
 instalar_servicio "${REPO}/arquitectura/dashboard/hcma-dashboard.service" \
   /etc/systemd/system/hcma-dashboard.service
+# El dashboard escribe su estado (telemetry.db, auth.db, certs, llm_config.json) en su
+# directorio; se lo damos al usuario del dashboard para que pueda escribir (el repo puede
+# estar clonado como root, p.ej. en el test de VM).
+chown -R "$DASH_USER":"$DASH_USER" "${REPO}/arquitectura/dashboard"
 systemctl daemon-reload
 systemctl enable hcma-monitor.service hcma-proxy.service hcma-dashboard.service
 echo "  unidades habilitadas (monitor, proxy, dashboard)"
