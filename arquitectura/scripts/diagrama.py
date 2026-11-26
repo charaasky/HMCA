@@ -30,7 +30,7 @@ degradation (it never lies: there is no schematic without a netlist).
 import os
 import sys
 
-DEP = "/home/charasky/Documentos/HMC/.deps"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".deps")
 if DEP not in sys.path and os.path.isdir(DEP):
     sys.path.insert(0, DEP)
 

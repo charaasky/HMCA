@@ -10,9 +10,10 @@ else
 fi
 
 echo "=== 2. Secretos del host NO visibles ==="
+HOST_REPO="${HCMA_HOST_REPO:-/home/charasky/Documentos/HMC}"
 for p in /var/lib/hcma-signer/humano_ed25519.key \
          /var/lib/hcma-signer/humano_ed25519.pub \
-         /home/charasky/Documentos/HMC/arquitectura; do
+         "${HOST_REPO}/arquitectura"; do
   if [ -e "$p" ]; then
     echo "CHECK_2_fail ($p VISIBLE)"
     FALLO=1

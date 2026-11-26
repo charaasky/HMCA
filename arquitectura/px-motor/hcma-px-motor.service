@@ -13,7 +13,7 @@
 
 [Unit]
 Description=HCMA px-motor — detector eBPF de escape de la microVM (política firmada)
-Documentation=file:///home/charasky/Documentos/HMC/arquitectura/px-motor/README.md
+Documentation=file://__HCMA_REPO__/arquitectura/px-motor/README.md
 Requires=hcma-firecracker.service
 After=hcma-firecracker.service
 BindsTo=hcma-firecracker.service

@@ -22,7 +22,7 @@ import shutil
 import subprocess
 import sys
 
-DEP = "/home/charasky/Documentos/HMC/.deps"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".deps")
 if DEP not in sys.path and os.path.isdir(DEP):
     sys.path.insert(0, DEP)
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -41,7 +41,7 @@ HERRAMIENTAS = {
         "alternativa": "render_esquematico_vectorial",
     },
     "ngspice": {
-        "binario": "/home/charasky/Documentos/HMC/.deps/ngspice/usr/bin/ngspice",
+        "binario": os.path.join(DEP, "ngspice", "usr", "bin", "ngspice"),
         "comando_verificacion": None,  # verified via fixed absolute path
         "proposito": "simulacion electrica (derivador de fisica)",
         "instalacion": None,
@@ -60,12 +60,12 @@ HERRAMIENTAS = {
         "alternativa": "openfoam",
     },
     "openfoam": {
-        "binario": "/home/charasky/Documentos/HMC/.deps/openfoam/usr/bin/blockMesh",
+        "binario": os.path.join(DEP, "openfoam", "usr", "bin", "blockMesh"),
         "comando_verificacion": None,  # verified via fixed path + WM_PROJECT_DIR
         "proposito": "CFD (Computational Fluid Dynamics) para simulacion de flujo/espumado de polimeros",
         "instalacion": None,  # already installed in .deps/openfoam
         "alternativa": "solver_numerico_cinetica_curado",
-        "env": {"WM_PROJECT_DIR": "/home/charasky/Documentos/HMC/.deps/openfoam/usr/share/openfoam"},
+        "env": {"WM_PROJECT_DIR": os.path.join(DEP, "openfoam", "usr", "share", "openfoam")},
     },
     "lean": {
         "binario": "lean",

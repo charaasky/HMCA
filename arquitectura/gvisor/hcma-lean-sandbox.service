@@ -17,14 +17,14 @@
 
 [Unit]
 Description=HCMA Lean formal verifier sandbox (gVisor/runsc)
-Documentation=file:///home/charasky/Documentos/HMC/arquitectura/PENDIENTE_lean_cgroup_lean4checker.md
+Documentation=file://__HCMA_REPO__/arquitectura/PENDIENTE_lean_cgroup_lean4checker.md
 
 [Service]
 Type=oneshot
 RemainAfterExit=no
 
 # Bundle y args FIJOS. El candidato vive en /var/lib/hcma-lean/work/Candidato.lean (bind-mount).
-ExecStart=/usr/bin/runsc --network=none run --bundle=/home/charasky/Documentos/HMC/arquitectura/gvisor/bundle-lean hcma-lean-sandbox
+ExecStart=/usr/bin/runsc --network=none run --bundle=__HCMA_REPO__/arquitectura/gvisor/bundle-lean hcma-lean-sandbox
 
 # Límites de recursos nativos (cgroup) — cierran el hueco de cgroups de gVisor.
 MemoryMax=2G

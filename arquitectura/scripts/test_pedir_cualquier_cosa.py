@@ -12,7 +12,7 @@ Verifica el invariante de Fable:
 import os
 import sys
 
-DEP = "/home/charasky/Documentos/HMC/.deps"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".deps")
 sys.path.insert(0, DEP)
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 if SCRIPTS not in sys.path:

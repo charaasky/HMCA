@@ -23,7 +23,7 @@ import shutil
 import subprocess
 import tempfile
 
-DEP = "/home/charasky/Documentos/HMC/.deps"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".deps")
 if DEP not in __import__("sys").path and os.path.isdir(DEP):
     __import__("sys").path.insert(0, DEP)
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -127,7 +127,7 @@ def _toolchain_root(binario):
 # The LEAN_PATH is computed ONCE outside (`lake env printenv LEAN_PATH`) and frozen; `lake` is NOT
 # run inside (it wants to write .lake and can use git/network). Here it is reconstructed from the
 # `.lake` tree (main build + packages).
-MATHLIB_LAKE = "/home/charasky/Documentos/HMC/.deps/mathlib4/.lake"
+MATHLIB_LAKE = os.path.join(DEP, "mathlib4", ".lake")
 
 
 def _mathlib_lean_paths():
@@ -302,7 +302,7 @@ def _sanitizar_prueba(prueba):
 # ── gVisor sandbox (runsc) — memory limit by cgroup (systemd), Fable ruling ──
 # gVisor does NOT apply linux.resources.memory.limit (only accounting, see IMPLEMENTACION_gvisor_sandbox.md).
 # The REAL memory limit is `MemoryMax` in the systemd unit `hcma-lean-sandbox.service` (cgroup).
-GVISOR_BUNDLE = "/home/charasky/Documentos/HMC/arquitectura/gvisor/bundle-lean"
+GVISOR_BUNDLE = os.path.join(SCRIPTS, "..", "gvisor", "bundle-lean")
 GVISOR_WORK = "/var/lib/hcma-lean/work"
 
 

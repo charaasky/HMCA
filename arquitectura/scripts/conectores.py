@@ -24,7 +24,7 @@ import tempfile
 import hashlib
 import sys
 
-DEP = "/home/charasky/Documentos/HMC/.deps"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".deps")
 if DEP not in sys.path and os.path.isdir(DEP):
     sys.path.insert(0, DEP)
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
@@ -32,8 +32,8 @@ if SCRIPTS not in sys.path:
     sys.path.insert(0, SCRIPTS)
 
 
-FOAM_BIN = "/home/charasky/Documentos/HMC/.deps/openfoam/usr/bin"
-FOAM_DIR = "/home/charasky/Documentos/HMC/.deps/openfoam/usr/share/openfoam"
+FOAM_BIN = os.path.join(DEP, "openfoam", "usr", "bin")
+FOAM_DIR = os.path.join(DEP, "openfoam", "usr", "share", "openfoam")
 # FOAM_ETC = $FOAM_DIR/etc (OpenFOAM's global controlDict lives here).
 # NOTE empirical finding: the global controlDict is read from $WM_PROJECT_DIR/etc/controlDict,
 # where WM_PROJECT_DIR must point to FOAM_DIR (not FOAM_ETC).

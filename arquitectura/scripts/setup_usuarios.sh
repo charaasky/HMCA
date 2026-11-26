@@ -44,7 +44,7 @@ emitir() {
   echo "sudo chmod 0700 ${MONITOR_HOME}"
   echo ""
   echo "# 3) Generar el par de claves (como root, luego chown al firmante):"
-  echo "sudo env HCMA_SIGNER_USER=${SIGNER_USER} PYTHONPATH=/home/charasky/Documentos/HMC/.deps python3 ${SCRIPT_DIR}/cli_firma_humana.py generar-claves"
+  echo "sudo env HCMA_SIGNER_USER=${SIGNER_USER} PYTHONPATH=${SCRIPT_DIR}/../../.deps python3 ${SCRIPT_DIR}/cli_firma_humana.py generar-claves"
   echo "sudo chown -R ${SIGNER_USER}:${SIGNER_USER} ${SIGNER_HOME}"
   echo ""
   echo "# 4) Ajustar permisos (privada 600 solo del firmante; publica 644 legible por el agente):"
@@ -93,7 +93,7 @@ aplicar() {
   # generar claves como ROOT (para no depender del PATH/PYTHONPATH de charasky), y luego
   # chown al firmante. La privada queda en el home del firmante, dueño correcto.
   if [ ! -f "${SIGNER_HOME}/humano_ed25519.key" ]; then
-    sudo env HCMA_SIGNER_USER="${SIGNER_USER}" PYTHONPATH="/home/charasky/Documentos/HMC/.deps" \
+    sudo env HCMA_SIGNER_USER="${SIGNER_USER}" PYTHONPATH="${SCRIPT_DIR}/../../.deps" \
       python3 "${SCRIPT_DIR}/cli_firma_humana.py" generar-claves \
       && sudo chown -R "${SIGNER_USER}:${SIGNER_USER}" "${SIGNER_HOME}"
   else

@@ -23,9 +23,10 @@ import json
 import os
 import sys
 
-DEP = "/home/charasky/Documentos/HMC/.deps"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".deps")
 if DEP not in sys.path and os.path.isdir(DEP):
     sys.path.insert(0, DEP)
+SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 
 
 def _sha256_file(path):
@@ -115,7 +116,7 @@ def canonical(checkpoint):
 
 if __name__ == "__main__":
     store = sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
-        "HCMA_STORE", "/home/charasky/Documentos/HMC/arquitectura/data/memoria.db")
+        "HCMA_STORE", os.path.join(SCRIPTS, "..", "data", "memoria.db"))
     nonces = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HCMA_NONCE_LOG", "")
     epoca = int(sys.argv[3]) if len(sys.argv) > 3 else None
     cp = calcular_checkpoint(store, nonces or None, epoca)

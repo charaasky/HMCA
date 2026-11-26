@@ -40,7 +40,7 @@ CHECKPOINT_JSON = os.path.join(ANCLA_DIR, "checkpoint.json")
 # is the ideal; here it is kept locally but separate from the agent and from the signer.
 PRIVADA_PATH = os.environ.get(
     "HCMA_CHECKPOINT_PRIVADA",
-    "/home/charasky/.config/hcma/checkpoint_privada.key")
+    os.path.expanduser("~/.config/hcma/checkpoint_privada.key"))
 
 
 def _generar_clave():
@@ -117,7 +117,7 @@ if __name__ == "__main__":
     if args[0] == "firmar":
         from checkpoint_cutover import calcular_checkpoint, canonical
         store = args[1] if len(args) > 1 else os.environ.get(
-            "HCMA_STORE", "/home/charasky/Documentos/HMC/arquitectura/data/memoria.db")
+            "HCMA_STORE", os.path.join(SCRIPTS, "..", "data", "memoria.db"))
         nonces = args[2] if len(args) > 2 else ""
         epoca = int(args[3]) if len(args) > 3 else None
         cp = calcular_checkpoint(store, nonces or None, epoca)

@@ -23,9 +23,9 @@ BindsTo=hcma-monitor.service
 Type=simple
 
 # Args FIJOS: tail del log de auditd, clasificador audit, identidad estable "host".
-ExecStart=/usr/bin/python3 /home/charasky/Documentos/HMC/arquitectura/scripts/observador_kernel.py --log /var/log/audit/audit.log --clasificador audit --agent-id host
+ExecStart=/usr/bin/python3 __HCMA_REPO__/arquitectura/scripts/observador_kernel.py --log /var/log/audit/audit.log --clasificador audit --agent-id host
 
-Environment=PYTHONPATH=/home/charasky/Documentos/HMC/.deps
+Environment=PYTHONPATH=__HCMA_REPO__/.deps
 Environment=HCMA_MONITOR_SOCK=/run/hcma/monitor.sock
 
 # Límites de recursos (anti-DoS sobre el watcher).

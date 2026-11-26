@@ -15,7 +15,7 @@ set -eu
 
 MONITOR_HOME="/var/lib/hcma-monitor"
 LIB_DIR="${MONITOR_HOME}/lib"
-SRC="/home/charasky/Documentos/HMC/arquitectura/scripts"
+SRC="$(cd "$(dirname "$0")" && pwd)"
 
 # Cierre de dependencias del monitor (sin prototipo.py ni módulos del agente).
 MODULOS="

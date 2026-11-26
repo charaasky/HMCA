@@ -22,12 +22,21 @@ if [ "$(id -u)" -ne 0 ]; then
   exec sudo sh "$0" "$@"
 fi
 
-REPO="/home/charasky/Documentos/HMC"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPTS="${REPO}/arquitectura/scripts"
 DEPS="${REPO}/.deps"
 SIGNER_HOME="/var/lib/hcma-signer"
 
 paso() { echo ""; echo "=== $1 ==="; }
+
+# Resuelve el placeholder __HCMA_REPO__ con la ruta real del repo al instalar una unidad
+# systemd (portabilidad: los .service no hardcodean /home/charasky).
+instalar_servicio() {
+  sed "s|__HCMA_REPO__|${REPO}|g" "$1" > "$2"
+  chmod 0644 "$2"
+  echo "  ok: $2"
+}
+
 
 crear_usuario() {
   u="$1"; uid="$2"; home="$3"
@@ -111,7 +120,7 @@ else
 fi
 install -m 0644 "${SCRIPTS}/hcma-monitor.service"  /etc/systemd/system/hcma-monitor.service
 install -m 0644 "${SCRIPTS}/hcma-proxy.service"    /etc/systemd/system/hcma-proxy.service
-install -m 0644 "${REPO}/arquitectura/dashboard/hcma-dashboard.service" \
+instalar_servicio "${REPO}/arquitectura/dashboard/hcma-dashboard.service" \
   /etc/systemd/system/hcma-dashboard.service
 systemctl daemon-reload
 systemctl enable hcma-monitor.service hcma-proxy.service hcma-dashboard.service

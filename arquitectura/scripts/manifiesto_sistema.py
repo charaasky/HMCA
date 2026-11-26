@@ -28,7 +28,7 @@ if SCRIPTS not in sys.path:
 
 # rutas de los artefactos a congelar
 MONITOR_LIB = "/var/lib/hcma-monitor/lib"
-GVISOR_DIR = "/home/charasky/Documentos/HMC/arquitectura/gvisor"
+GVISOR_DIR = os.path.join(SCRIPTS, "..", "gvisor")
 RESULTADOS_DIR = os.path.join(SCRIPTS, "..", "resultados")
 
 

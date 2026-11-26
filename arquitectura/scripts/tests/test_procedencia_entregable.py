@@ -19,7 +19,7 @@ Cubre los bugs que Fable 5.2 confirmó (fable_bug_procedencia):
 import os
 import sys
 
-DEP = "/home/charasky/Documentos/HMC/.deps"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".deps")
 sys.path.insert(0, DEP)
 SCRIPTS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if SCRIPTS not in sys.path:

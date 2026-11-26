@@ -18,7 +18,8 @@ set -u
 MONITOR_USER="hcma-monitor"
 MONITOR_HOME="/var/lib/${MONITOR_USER}"
 AUDIT_GROUP="hcma-audit"
-STORE_SRC="/home/charasky/Documentos/HMC/arquitectura/data/memoria.db"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+STORE_SRC="${REPO}/arquitectura/data/memoria.db"
 STORE_DST="${MONITOR_HOME}/store/memoria.db"
 NONCE_DST="${MONITOR_HOME}/nonces.log"
 

@@ -23,9 +23,10 @@ import subprocess
 import tempfile
 import hashlib
 
-NGSPICE_BIN = "/home/charasky/Documentos/HMC/.deps/ngspice/usr/bin/ngspice"
-NGSPICE_LIB = "/home/charasky/Documentos/HMC/.deps/ngspice/usr/lib/x86_64-linux-gnu"
-NGSPICE_SCRIPTS = "/home/charasky/Documentos/HMC/.deps/ngspice/usr/share/ngspice/scripts"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".deps")
+NGSPICE_BIN = os.path.join(DEP, "ngspice", "usr", "bin", "ngspice")
+NGSPICE_LIB = os.path.join(DEP, "ngspice", "usr", "lib", "x86_64-linux-gnu")
+NGSPICE_SCRIPTS = os.path.join(DEP, "ngspice", "usr", "share", "ngspice", "scripts")
 
 
 def _entorno():

@@ -17,7 +17,7 @@ if [ "$(id -u)" -ne 0 ]; then
   exec sudo sh "$0" "$@"
 fi
 
-REPO="/home/charasky/Documentos/HMC"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
 MONITOR_DROPIN="/etc/systemd/system/hcma-monitor.service.d/vsock.conf"
 
 paso() { echo ""; echo "================================================================"; echo " $1"; echo "================================================================"; }

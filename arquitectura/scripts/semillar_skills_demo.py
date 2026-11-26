@@ -20,7 +20,7 @@ and evaluated against golden tests whose expected values are independent of the 
 import os
 import sys
 
-DEP = "/home/charasky/Documentos/HMC/.deps"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".deps")
 if DEP not in sys.path and os.path.isdir(DEP):
     sys.path.insert(0, DEP)
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))

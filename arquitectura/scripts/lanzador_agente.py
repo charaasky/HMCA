@@ -30,7 +30,7 @@ import monitor_ipc as IPC  # noqa: E402  (framing; sin deps del monitor)
 MONITOR_SOCK = os.environ.get("HCMA_MONITOR_SOCK", "/run/hcma/monitor.sock")
 RUNSC = "/usr/bin/runsc"
 BUNDLE = os.environ.get("HCMA_AGENT_BUNDLE",
-                        "/home/charasky/Documentos/HMC/arquitectura/gvisor/bundle-agente")
+                        os.path.join(SCRIPTS, "..", "gvisor", "bundle-agente"))
 GUEST_FD = 3  # fd inside the sandbox where the agent reads/writes the IPC
 # Containment observability (opt-in): if set, runsc writes its debug-log to the host and
 # the launcher reports it to the monitor at the end to classify/record escapes (vigilancia_gvisor).

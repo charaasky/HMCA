@@ -19,7 +19,7 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOTFS="$HERE/bundle-agente/rootfs"
 PYTHON_RF="$HERE/bundle-python/rootfs"
 NGSPICE_BIN="$HERE/artifacts/ngspice/bin/ngspice"
-SCRIPTS="/home/charasky/Documentos/HMC/arquitectura/scripts"
+SCRIPTS="$HERE/../scripts"
 
 echo "==> Generando rootfs del agente en $ROOTFS ..."
 rm -rf "$ROOTFS"

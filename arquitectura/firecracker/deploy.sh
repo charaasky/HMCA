@@ -26,7 +26,7 @@ if [ "$(id -u)" -ne 0 ]; then
   exec sudo sh "$0" "$@"
 fi
 
-REPO="/home/charasky/Documentos/HMC"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 FIRECRACKER_DIR="/var/lib/hcma-firecracker"
 FIRECRACKER_BIN="/usr/bin/firecracker"
 
@@ -34,6 +34,15 @@ VMLINUX="${HCMA_VMLINUX:-${1:-}}"
 ROOTFS="${HCMA_ROOTFS:-${2:-}}"
 
 paso() { echo ""; echo "=== $1 ==="; }
+
+# Resuelve el placeholder __HCMA_REPO__ con la ruta real del repo al instalar una unidad
+# systemd (portabilidad: los .service no hardcodean /home/charasky).
+instalar_servicio() {
+  sed "s|__HCMA_REPO__|${REPO}|g" "$1" > "$2"
+  chmod 0644 "$2"
+  echo "  ok: $2"
+}
+
 
 # ---- 1. firecracker ----
 paso "[1/6] Instalar firecracker"
@@ -137,9 +146,9 @@ fi
 
 # ---- 6. unidades systemd ----
 paso "[6/6] Unidades systemd (firecracker + audit-watcher + monitor actualizado)"
-install -m 0644 "${REPO}/arquitectura/firecracker/hcma-firecracker.service" \
+instalar_servicio "${REPO}/arquitectura/firecracker/hcma-firecracker.service" \
   /etc/systemd/system/hcma-firecracker.service
-install -m 0644 "${REPO}/arquitectura/scripts/hcma-audit-watcher.service" \
+instalar_servicio "${REPO}/arquitectura/scripts/hcma-audit-watcher.service" \
   /etc/systemd/system/hcma-audit-watcher.service
 # El monitor se reinstala para que tome SupplementaryGroups=hcma-vsock (necesario para el chown
 # del socket vsock). El restart efectivo ocurre en el CUTOVER.

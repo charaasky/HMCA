@@ -28,7 +28,7 @@
 
 [Unit]
 Description=HCMA agent microVM (Firecracker/KVM, boundary de hardware)
-Documentation=file:///home/charasky/Documentos/HMC/arquitectura/firecracker/README.md
+Documentation=file://__HCMA_REPO__/arquitectura/firecracker/README.md
 Requires=hcma-monitor.service
 After=hcma-monitor.service
 BindsTo=hcma-monitor.service

@@ -37,7 +37,7 @@ import random
 import re
 from urllib.request import Request, urlopen
 
-DEP = "/home/charasky/Documentos/HMC/.deps"
+DEP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".deps")
 sys.path.insert(0, DEP)
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
 if SCRIPTS not in sys.path:

@@ -10,7 +10,7 @@ set -eu
 
 PROXY_HOME="/var/lib/hcma-proxy"
 LIB_DIR="${PROXY_HOME}/lib"
-SRC="/home/charasky/Documentos/HMC/arquitectura/scripts"
+SRC="$(cd "$(dirname "$0")" && pwd)"
 
 # Cierre de dependencias del proxy: SOLO lo necesario para validar intent + egreso + framing.
 # NO memoria_sqlite, NO gobernanza, NO objetivo (eso es del monitor).

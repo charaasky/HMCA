@@ -26,14 +26,14 @@
 
 [Unit]
 Description=HCMA agent sandbox (gVisor/runsc)
-Documentation=file:///home/charasky/Documentos/HMC/arquitectura/IMPLEMENTACION_gvisor_sandbox.md
+Documentation=file://__HCMA_REPO__/arquitectura/IMPLEMENTACION_gvisor_sandbox.md
 
 [Service]
 Type=oneshot
 RemainAfterExit=no
 
 # Bundle y args FIJOS (el payload real del agente se define en config.json cuando se integre).
-ExecStart=/usr/bin/runsc --network=none run --bundle=/home/charasky/Documentos/HMC/arquitectura/gvisor/bundle hcma-agent-sandbox
+ExecStart=/usr/bin/runsc --network=none run --bundle=__HCMA_REPO__/arquitectura/gvisor/bundle hcma-agent-sandbox
 
 # Límites de recursos nativos (anti-DoS) — cierran el hueco de cgroups de gVisor.
 MemoryMax=512M
