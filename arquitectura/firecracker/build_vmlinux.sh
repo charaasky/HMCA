@@ -47,6 +47,9 @@ scripts/config \
   --disable DEBUG_INFO \
   --disable DEBUG_INFO_BTF \
   --disable WERROR \
+  --disable SYSTEM_TRUSTED_KEYRING \
+  --disable SECONDARY_TRUSTED_KEYRING \
+  --disable SYSTEM_REVOCATION_LIST \
   --enable VIRTIO \
   --enable VIRTIO_PCI \
   --enable VIRTIO_BLK \
