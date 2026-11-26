@@ -49,8 +49,12 @@ tail -f /var/log/hcma-install.log
 ## Apagar la VM
 
 ```bash
-pkill -f qemu-system-x86_64
+sh teardown.sh
 ```
+
+Apaga el qemu del test y borra `.vm/` (imagen + seed), liberando el disco.
+La desinstalación de HCMA (dentro de la VM o en cualquier host) es:
+`sudo sh arquitectura/desinstalar.sh`.
 
 ## Notas
 
