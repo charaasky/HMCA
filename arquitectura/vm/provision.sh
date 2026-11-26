@@ -23,6 +23,15 @@ if [ "$(id -u)" -ne 0 ]; then
   exec sudo bash "$0"
 fi
 
+# Imagen reutilizada: una instalación previa puede dejar los servicios habilitados y corriendo
+# al boot, ocupando el puerto del dashboard (8787) y ensuciando el test "desde cero".
+# Los detenemos para partir limpio y fijamos el puerto a 8787, que es el que run_vm_test.sh
+# redirige desde el host (host:8788 -> VM:8787, vía hostfwd).
+for svc in hcma-dashboard hcma-monitor hcma-proxy hcma-firecracker hcma-px-motor; do
+  systemctl stop "$svc.service" 2>/dev/null || true
+done
+export HCMA_DASH_PORT=8787
+
 echo "==> actualizando índices apt"
 apt-get update -y
 
