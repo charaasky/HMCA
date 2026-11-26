@@ -110,3 +110,35 @@ Firecracker sube la barrera de escape de "bug del Sentry" a "bug del VMM/KVM", e
 alcanzable sin hardware dedicado. **No elimina** la posibilidad de escape: sigue habiendo una
 superficie (el VMM ~50k LOC + KVM). La afirmación honesta es "reduce la probabilidad a 'requiere
 un bug del hypervisor'", no "es imposible". Ver `consultas/modelo_amenazas.md`.
+
+## Construcción de la imagen huésped (vmlinux + rootfs.ext4)
+
+La microVM necesita dos artefactos que **no se versionan** (se regeneran con los scripts):
+
+| Script | Produce | Requisitos |
+|---|---|---|
+| `build_vmlinux.sh` | `vmlinux` (kernel ELF mínimo: virtio-blk/vsock/ext4/serial built-in) | gcc make bc bison flex libelf-dev |
+| `build_rootfs_firecracker.sh` | `rootfs.ext4` (Debian minbase + python3 + agente + /init) | mmdebstrap, e2fsprogs |
+
+```bash
+# 1) kernel huésped
+sudo sh build_vmlinux.sh              # → ./vmlinux
+
+# 2) rootfs
+sudo sh build_rootfs_firecracker.sh   # → ./rootfs.ext4
+
+# 3) desplegar pasando los artefactos
+sudo HCMA_VMLINUX=$PWD/vmlinux HCMA_ROOTFS=$PWD/rootfs.ext4 sh deploy.sh
+```
+
+El `config.json` ya incluye el dispositivo `vsock` (`guest_cid=3`,
+`uds_path=/run/hcma/vsock.sock`) y `init=/init` en `boot_args`. El `guest_init` monta
+`/proc` `/sys` `/dev` y arranca `agente_vsock.py`, que conecta a `CID_HOST=2` puerto `5000`.
+
+### PENDIENTE — shim de protocolo vsock en el monitor
+
+Falta la integración vsock del lado del monitor: hoy `monitor_multiplex` trata el UDS
+`/run/hcma/vsock.sock` como un stream crudo de `monitor_ipc`, pero Firecracker multiplexa las
+conexiones vsock del guest con su propio encabezado. Hasta no parsear ese encabezado, el guest
+arranca pero el agente **no** llega a hablar con el monitor de punta a punta. Es el siguiente
+paso de integración (no es un bug del instalador).

@@ -1,0 +1,14 @@
+#!/bin/sh
+# guest_init — PID 1 dentro de la microVM Firecracker.
+# Monta los pseudo-filesystems y arranca el agente conectando por virtio-vsock.
+BB=/bin/busybox
+
+$BB mount -t proc proc /proc 2>/dev/null || true
+$BB mount -t sysfs sysfs /sys 2>/dev/null || true
+$BB mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+$BB mkdir -p /dev/pts /tmp 2>/dev/null || true
+$BB mount -t devpts devpts /dev/pts 2>/dev/null || true
+$BB mount -t tmpfs tmpfs /tmp 2>/dev/null || true
+
+echo "[guest] arrancando agente vsock ..."
+exec /usr/bin/python3 /usr/local/lib/hcma_agente/agente_vsock.py

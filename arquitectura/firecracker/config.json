@@ -1,7 +1,7 @@
 {
   "boot-source": {
     "kernel_image_path": "/var/lib/hcma-firecracker/vmlinux",
-    "boot_args": "console=ttyS0 reboot=k panic=1 pci=off"
+    "boot_args": "console=ttyS0 reboot=k panic=1 pci=off init=/init"
   },
   "drives": [
     {
@@ -16,5 +16,9 @@
     "vcpu_count": 1,
     "mem_size_mib": 512,
     "smt": false
+  },
+  "vsock": {
+    "guest_cid": 3,
+    "uds_path": "/run/hcma/vsock.sock"
   }
 }

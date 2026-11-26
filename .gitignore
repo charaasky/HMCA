@@ -91,3 +91,9 @@ Thumbs.db
 
 # ── VM test harness (QEMU cloud image + cloud-init seed) — never commit ──
 arquitectura/vm/.vm/
+
+# ── Firecracker guest image (kernel + rootfs) — regenerables, nunca commit ──
+arquitectura/firecracker/vmlinux
+arquitectura/firecracker/rootfs.ext4
+arquitectura/firecracker/rootfs-firecracker/
+arquitectura/firecracker/linux-*/
