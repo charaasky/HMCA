@@ -53,6 +53,7 @@ scripts/config \
   --enable VIRTIO \
   --enable VIRTIO_PCI \
   --enable VIRTIO_BLK \
+  --enable VSOCKETS \
   --enable VIRTIO_VSOCKETS \
   --enable VIRTIO_VSOCKETS_COMMON \
   --enable EXT4_FS \
