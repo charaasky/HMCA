@@ -70,6 +70,7 @@ Restart=no
 # profundidad). /var/lib/hcma-firecracker (kernel+rootfs) es de SOLO LECTURA para firecracker.
 PrivateTmp=yes
 ProtectSystem=strict
+ReadWritePaths=/run/hcma
 ProtectHome=yes
 NoNewPrivileges=yes
 

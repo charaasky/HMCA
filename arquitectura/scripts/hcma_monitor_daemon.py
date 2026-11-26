@@ -216,12 +216,14 @@ def _crear_socket_gobernanza():
     except (KeyError, OSError, PermissionError):
         # group missing or without chown privileges => fail-closed (only the monitor connects)
         os.chmod(GOVERNANZA_SOCK, 0o600)
-    # The socket directory (/run/hcma) is created 0700 by systemd's RuntimeDirectory. The
-    # dashboard (hcma-audit group) must be able to TRAVERSE it to connect to the governance socket.
-    # The agent socket (/run/hcma/monitor.sock) stays 0600, so traversing does not expose it.
+    # /run/hcma: hcma-vsock debe poder ESCRIBIR (Firecracker binda acá el socket BASE del vsock,
+    # host-initiated), y hcma-audit debe poder TRAVERSAR (dashboard -> gobernanza). 0771 + grupo
+    # hcma-vsock cumple ambos. El socket del agente (/run/hcma/monitor.sock) sigue 0600.
     try:
-        os.chmod(dir_sock, 0o711)
-    except OSError:
+        gid_vsock = grp.getgrnam("hcma-vsock").gr_gid
+        os.chown(dir_sock, -1, gid_vsock)
+        os.chmod(dir_sock, 0o771)
+    except (KeyError, OSError, PermissionError):
         pass
     s.listen(16)
     return s
