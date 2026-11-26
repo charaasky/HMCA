@@ -44,7 +44,17 @@ else
   ok "agente NO lee la privada del signer (frontera activa)"
 fi
 
-curl -skS -o /dev/null --max-time 5 https://localhost:${DASH_PORT}/ \
+# El dashboard puede tardar unos segundos en bindear tras el arranque (Python + TLS).
+# Reintentamos hasta ~12s antes de marcar fallo, para no dar falso negativo.
+dash_ok=0
+for _ in 1 2 3 4 5 6; do
+  if curl -skS -o /dev/null --max-time 3 https://localhost:${DASH_PORT}/; then
+    dash_ok=1
+    break
+  fi
+  sleep 2
+done
+[ "$dash_ok" -eq 1 ] \
   && ok "dashboard responde en :${DASH_PORT}" || bad "dashboard no responde en :${DASH_PORT}"
 
 echo ""
