@@ -21,6 +21,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 VM_DIR="$HERE/.vm"
 IMAGE="$VM_DIR/ubuntu-24.04.img"
+BASE="$VM_DIR/base-ubuntu-24.04.img"
 SEED="$VM_DIR/seed.iso"
 USER_DATA="$VM_DIR/user-data"
 META_DATA="$VM_DIR/meta-data"
@@ -56,16 +57,18 @@ KEY="$(cat "$SSH_PUB")"
 
 mkdir -p "$VM_DIR"
 
-echo "==> descargando imagen Ubuntu 24.04 (solo la primera vez)"
-if [ ! -f "$IMAGE" ]; then
-  wget -O "$IMAGE" "$IMAGE_URL"
+echo "==> descargando imagen base Ubuntu 24.04 (solo la primera vez; queda prístina)"
+if [ ! -f "$BASE" ]; then
+  wget -O "$BASE" "$IMAGE_URL"
 fi
 
 echo "==> apagando VM previa del test si existe (libera el lock de la imagen)"
 pkill -f "qemu-system-x86_64.*${VM_DIR}" 2>/dev/null || true
 sleep 1
 
-echo "==> redimensionando imagen a ${DISK_GB}G"
+echo "==> creando overlay virgen (snapshot) sobre la base prístina"
+rm -f "$IMAGE"
+qemu-img create -f qcow2 -F qcow2 -b "$BASE" "$IMAGE" >/dev/null
 qemu-img resize "$IMAGE" "${DISK_GB}G" >/dev/null
 
 echo "==> generando seed cloud-init (usuario ubuntu + clave SSH)"
