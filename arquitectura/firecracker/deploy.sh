@@ -62,11 +62,15 @@ else
   if [ "${FC_OK:-0}" != "1" ]; then
     echo "  firecracker no está en los repos; descargando binario de GitHub..."
     FC_VERSION="${FIRECRACKER_VERSION:-1.18.0}"
-    FC_TGZ="/tmp/firecracker-v${FC_VERSION}-x86_64.tgz"
-    curl -fsSL -o "$FC_TGZ" "https://github.com/firecracker-microvm/firecracker/releases/download/v${FC_VERSION}/firecracker-v${FC_VERSION}-x86_64.tgz"
-    mkdir -p /tmp/fc-extract
-    tar -xzf "$FC_TGZ" -C /tmp/fc-extract --strip-components=1
-    install -m 0755 /tmp/fc-extract/firecracker "${FIRECRACKER_BIN}"
+    # Descarga atómica: archivo y dir temporales propios (evita chocar con un .tgz previo
+    # de otro usuario y fallas transitorias de escritura), con reintentos de red.
+    FC_TGZ="$(mktemp /tmp/firecracker-v${FC_VERSION}-XXXXXX.tgz)"
+    FC_EXT="$(mktemp -d /tmp/fc-extract-XXXXXX)"
+    curl -fsSL --retry 3 --retry-delay 2 -o "$FC_TGZ" \
+      "https://github.com/firecracker-microvm/firecracker/releases/download/v${FC_VERSION}/firecracker-v${FC_VERSION}-x86_64.tgz"
+    tar -xzf "$FC_TGZ" -C "$FC_EXT" --strip-components=1
+    install -m 0755 "$FC_EXT/firecracker" "${FIRECRACKER_BIN}"
+    rm -rf "$FC_TGZ" "$FC_EXT"
   fi
   if [ ! -x "${FIRECRACKER_BIN}" ]; then
     echo "  ❌ firecracker no quedó en ${FIRECRACKER_BIN}; verificalo e instalalo a mano." >&2
