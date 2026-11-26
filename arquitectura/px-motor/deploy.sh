@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Idempotente. Hace:
-#   1) build de px-motor + policygen desde el repo del motor (framework secure/laboratorio/motor-go)
+#   1) build de px-motor + policygen desde la dependencia motor-go (github.com/charaasky/motor-go)
 #   2) clave de política (separada de vendor.key; root-only) — copia la existente o genera una nueva
 #   3) política runtime firmada (serial monótono, cgroup/UID/exe del sujeto, anti-rollback)
 #   4) instalación del binario + política + unidad systemd
@@ -21,8 +21,9 @@ if [ "$(id -u)" -ne 0 ]; then
   exec sudo sh "$0" "$@"
 fi
 
-REPO="/home/charasky/Documentos/HMC"
-PXMOTOR_SRC="${PXMOTOR_SRC:-/home/charasky/Documentos/framework secure/laboratorio/motor-go}"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+MOTOR_REPO="${MOTOR_REPO:-https://github.com/charaasky/motor-go.git}"
+PXMOTOR_SRC="${PXMOTOR_SRC:-/var/lib/px-motor/src}"
 INSTALL_BIN="/usr/local/bin/px-motor"
 POLICYGEN_BIN="/usr/local/bin/policygen"
 STATE_DIR="/var/lib/px-motor"
@@ -31,14 +32,45 @@ LEGACY_KEY="/home/charasky/.keys/px-motor/policy.key"
 
 paso() { echo ""; echo "=== $1 ==="; }
 
+# Resuelve el placeholder __HCMA_REPO__ con la ruta real del repo al instalar una unidad
+# systemd (portabilidad: los .service no hardcodean /home/charasky).
+instalar_servicio() {
+  sed "s|__HCMA_REPO__|${REPO}|g" "$1" > "$2"
+  chmod 0644 "$2"
+  echo "  ok: $2"
+}
+
+
 # ---- 1. build ----
-paso "[1/5] Build px-motor + policygen"
-if [ ! -d "${PXMOTOR_SRC}" ]; then
-  echo "  ❌ no encuentro ${PXMOTOR_SRC}" >&2
-  echo "     set PXMOTOR_SRC=/ruta/a/laboratorio/motor-go y re-ejecutá." >&2
-  exit 1
+paso "[1/5] Build px-motor + policygen (dependencia: motor-go)"
+echo "  dependencia: ${MOTOR_REPO}"
+
+# Herramientas de build requeridas (motor-go compila sondas eBPF + binario Go).
+for tool in git go clang bpftool; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    echo "  ❌ falta '$tool' (requerido para compilar motor-go)." >&2
+    echo "     Ubuntu/Debian: sudo apt-get install -y git golang-go clang bpftool linux-headers-$(uname -r)" >&2
+    exit 1
+  fi
+done
+
+# Clonar la dependencia motor-go si no está (o apuntar PXMOTOR_SRC a un checkout local).
+if [ ! -d "${PXMOTOR_SRC}/.git" ]; then
+  echo "  clonando ${MOTOR_REPO} → ${PXMOTOR_SRC} ..."
+  git clone --depth 1 "${MOTOR_REPO}" "${PXMOTOR_SRC}"
 fi
-(cd "${PXMOTOR_SRC}" && CGO_ENABLED=0 go build -o /tmp/px-motor . && CGO_ENABLED=0 go build -o /tmp/policygen ./policygen)
+
+# Compilar desde fuente: vmlinux.h + sondas .bpf.c → .bpf.o, luego el binario Go (embebe los .o).
+if [ ! -f "${PXMOTOR_SRC}/vmlinux.h" ]; then
+  echo "  generando vmlinux.h (bpftool btf dump) ..."
+  bpftool btf dump file /sys/kernel/btf/vmlinux format c > "${PXMOTOR_SRC}/vmlinux.h"
+fi
+(cd "${PXMOTOR_SRC}" && \
+  clang -O2 -g -target bpf -D__TARGET_ARCH_x86 -c probe.bpf.c -o probe.bpf.o && \
+  clang -O2 -g -target bpf -D__TARGET_ARCH_x86 -c net.bpf.c   -o net.bpf.o   && \
+  clang -O2 -g -target bpf -D__TARGET_ARCH_x86 -c lsm.bpf.c   -o lsm.bpf.o   && \
+  CGO_ENABLED=0 go build -o /tmp/px-motor . && \
+  CGO_ENABLED=0 go build -o /tmp/policygen ./policygen)
 install -m 0755 /tmp/px-motor     "${INSTALL_BIN}"
 install -m 0755 /tmp/policygen    "${POLICYGEN_BIN}"
 echo "  ok: ${INSTALL_BIN} y ${POLICYGEN_BIN} instalados"
@@ -79,7 +111,7 @@ python3 -c "import json; p=json.load(open('${STATE_DIR}/policy.json')); print(' 
 
 # ---- 4. unidad systemd ----
 paso "[4/5] Unidad systemd hcma-px-motor.service"
-install -m 0644 "${REPO}/arquitectura/px-motor/hcma-px-motor.service" \
+instalar_servicio "${REPO}/arquitectura/px-motor/hcma-px-motor.service" \
   /etc/systemd/system/hcma-px-motor.service
 systemctl daemon-reload
 systemctl enable hcma-px-motor.service >/dev/null 2>&1 || true
