@@ -18,6 +18,10 @@ Requires=hcma-firecracker.service
 After=hcma-firecracker.service
 BindsTo=hcma-firecracker.service
 
+# Límite de reintentos (systemd moderno: va en [Unit], no en [Service])
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
 [Service]
 Type=simple
 
@@ -32,8 +36,6 @@ LimitMEMLOCK=infinity
 # Reiniciar solo ante caídas (no ante fail-closed: una política inválida no debe hacer loop).
 Restart=on-failure
 RestartSec=5
-StartLimitIntervalSec=120
-StartLimitBurst=3
 
 # El detector solo necesita LEER /proc, /sys/fs/cgroup y escribir en /var/lib/px-motor.
 ProtectSystem=strict

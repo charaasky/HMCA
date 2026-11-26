@@ -11,4 +11,9 @@ $BB mount -t devpts devpts /dev/pts 2>/dev/null || true
 $BB mount -t tmpfs tmpfs /tmp 2>/dev/null || true
 
 echo "[guest] arrancando agente vsock ..."
-exec /usr/bin/python3 /usr/local/lib/hcma_agente/agente_vsock.py
+# PID 1 no debe salir: si el agente termina, el guest se apaga y firecracker (Restart=no) muere.
+# Bucle de supervisión mínimo: reintenta el agente y mantiene vivo el guest.
+while true; do
+  /usr/bin/python3 /usr/local/lib/hcma_agente/agente_vsock.py || true
+  sleep 5
+done
