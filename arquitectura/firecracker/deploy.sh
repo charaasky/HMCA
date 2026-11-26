@@ -69,7 +69,7 @@ else
     curl -fsSL --retry 3 --retry-delay 2 -o "$FC_TGZ" \
       "https://github.com/firecracker-microvm/firecracker/releases/download/v${FC_VERSION}/firecracker-v${FC_VERSION}-x86_64.tgz"
     tar -xzf "$FC_TGZ" -C "$FC_EXT" --strip-components=1
-    install -m 0755 "$FC_EXT/firecracker" "${FIRECRACKER_BIN}"
+    install -m 0755 "$FC_EXT/firecracker-v${FC_VERSION}-x86_64" "${FIRECRACKER_BIN}"
     rm -rf "$FC_TGZ" "$FC_EXT"
   fi
   if [ ! -x "${FIRECRACKER_BIN}" ]; then
