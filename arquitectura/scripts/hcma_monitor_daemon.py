@@ -275,6 +275,20 @@ def _crear_socket_agente():
 def main():
     print("hcma-monitor arrancando (UID %d)..." % os.getuid())
 
+    # Preparar /run/hcma TEMPRANO (antes del facade lento). Firecracker (grupo hcma-vsock) necesita
+    # escribir acá para bindear el socket BASE del vsock. Si se hace tarde, hay una carrera: systemd
+    # marca el monitor "started" apenas spawnea el proceso, y Firecracker arranca ~1s después, a
+    # veces antes de que este chown/chmod corra (dejaba /run/hcma en 0711 => EACCES).
+    try:
+        import grp as _grp
+        _gid_vsock = _grp.getgrnam("hcma-vsock").gr_gid
+        _dir_run = os.path.dirname(SOCKET_PATH)  # /run/hcma
+        if os.path.isdir(_dir_run):
+            os.chown(_dir_run, -1, _gid_vsock)
+            os.chmod(_dir_run, 0o771)
+    except (KeyError, OSError, PermissionError):
+        pass
+
     # 1. verify checkpoint
     ckp = verificar_checkpoint()
     print("checkpoint:", ckp["detalle"])
