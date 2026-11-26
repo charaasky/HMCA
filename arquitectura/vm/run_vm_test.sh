@@ -86,7 +86,7 @@ qemu-system-x86_64 \
   -enable-kvm -cpu host -smp "$CPUS" -m "$RAM_MB" \
   -drive file="$IMAGE",if=virtio \
   -drive file="$SEED",if=virtio,format=raw \
-  -netdev user,id=net0,hostfwd=tcp::${SSH_PORT}-:22 \
+  -netdev user,id=net0,hostfwd=tcp::${SSH_PORT}-:22,hostfwd=tcp::8787-:8787 \
   -device virtio-net-pci,netdev=net0 \
   -display none -daemonize
 
@@ -111,8 +111,10 @@ scp $SCP_OPTS "$HERE/provision.sh" ubuntu@localhost:/tmp/provision.sh
 ssh $SSH_OPTS ubuntu@localhost 'bash /tmp/provision.sh'
 
 echo ""
-echo "==> TEST COMPLETO. Para entrar a la VM:"
-echo "    ssh -p $SSH_PORT ubuntu@localhost"
-echo "    log de instalación: tail -f /var/log/hcma-install.log"
 echo ""
-echo "    Para apagar la VM:  pkill -f 'qemu-system-x86_64.*hcma-vm-test' (o usar el PID)"
+echo "==> TEST COMPLETO =="
+echo "    Dashboard:   https://localhost:8787/   (aceptá el certificado autofirmado)"
+echo "    SSH a la VM: ssh -p $SSH_PORT ubuntu@localhost"
+echo "    log:         tail -f /var/log/hcma-install.log   (dentro de la VM)"
+echo ""
+echo "    Para apagar la VM:  sh teardown.sh"
