@@ -14,10 +14,10 @@ bad() { echo "  ❌ $1"; FAIL=1; }
 
 echo "=== Verificación de salud HCMA ==="
 
-[ "$(id -u hcma-agent 2>/dev/null)"   = "101" ] && ok "hcma-agent  (uid 101)" || bad "hcma-agent  (uid 101)"
-[ "$(id -u hcma-signer 2>/dev/null)"  = "102" ] && ok "hcma-signer (uid 102)" || bad "hcma-signer (uid 102)"
-[ "$(id -u hcma-monitor 2>/dev/null)" = "999" ] && ok "hcma-monitor(uid 999)" || bad "hcma-monitor(uid 999)"
-[ "$(id -u hcma-proxy 2>/dev/null)"   = "997" ] && ok "hcma-proxy  (uid 997)" || bad "hcma-proxy  (uid 997)"
+id hcma-agent   >/dev/null 2>&1 && ok "hcma-agent   (uid $(id -u hcma-agent))"   || bad "hcma-agent"
+id hcma-signer  >/dev/null 2>&1 && ok "hcma-signer  (uid $(id -u hcma-signer))"  || bad "hcma-signer"
+id hcma-monitor >/dev/null 2>&1 && ok "hcma-monitor (uid $(id -u hcma-monitor))" || bad "hcma-monitor"
+id hcma-proxy   >/dev/null 2>&1 && ok "hcma-proxy   (uid $(id -u hcma-proxy))"   || bad "hcma-proxy"
 getent group hcma-red >/dev/null 2>&1 && ok "grupo hcma-red presente" || bad "grupo hcma-red presente"
 
 runsc --version >/dev/null 2>&1 && ok "runsc (gVisor) instalado" || bad "runsc (gVisor) instalado"

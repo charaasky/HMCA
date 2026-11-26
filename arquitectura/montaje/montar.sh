@@ -44,6 +44,11 @@ crear_usuario() {
   u="$1"; uid="$2"; home="$3"
   if id "$u" >/dev/null 2>&1; then
     echo "  ok: $u ya existe (uid $(id -u "$u"))"
+  elif getent passwd "$uid" >/dev/null 2>&1; then
+    # UID ya ocupado por otro usuario del sistema (p.ej. systemd en Ubuntu): auto-asignar.
+    useradd --system --user-group --create-home --home "$home" \
+      --shell /usr/sbin/nologin "$u"
+    echo "  creado: $u (uid $(id -u "$u"); el $uid estaba ocupado)"
   else
     useradd --system --user-group --uid "$uid" --create-home --home "$home" \
       --shell /usr/sbin/nologin "$u"
@@ -69,6 +74,21 @@ for u in hcma-proxy hcma-monitor; do
   fi
 done
 chmod 0700 /var/lib/hcma-monitor
+
+# Registrar los UIDs reales (por si colisionaron y se auto-asignaron) para que el
+# firewall y el proxy usen el UID correcto, no un número hardcodeado.
+AGENT_UID="$(id -u hcma-agent)"
+SIGNER_UID="$(id -u hcma-signer)"
+MONITOR_UID="$(id -u hcma-monitor)"
+PROXY_UID="$(id -u hcma-proxy)"
+install -d -m 0755 /etc/hcma
+cat > /etc/hcma/uids.env <<EOF
+HCMA_AGENT_UID=${AGENT_UID}
+HCMA_SIGNER_UID=${SIGNER_UID}
+HCMA_MONITOR_UID=${MONITOR_UID}
+HCMA_PROXY_UID=${PROXY_UID}
+EOF
+echo "  uids: agent=${AGENT_UID} signer=${SIGNER_UID} monitor=${MONITOR_UID} proxy=${PROXY_UID}"
 
 paso "[2/6] Claves Ed25519 + ancla de confianza (pin)"
 if [ -f "${SIGNER_HOME}/humano_ed25519.key" ]; then

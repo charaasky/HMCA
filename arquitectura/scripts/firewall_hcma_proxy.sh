@@ -23,7 +23,7 @@
 set -eu
 
 NFT="/usr/sbin/nft"
-PROXY_UID="997"
+PROXY_UID="$(id -u hcma-proxy 2>/dev/null || echo 997)"
 TABLA="hcma_egreso"
 DNS_RESOLVER="192.168.1.1"
 
