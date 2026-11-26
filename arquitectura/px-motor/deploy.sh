@@ -49,7 +49,7 @@ echo "  dependencia: ${MOTOR_REPO}"
 for tool in git go clang bpftool; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "  ❌ falta '$tool' (requerido para compilar motor-go)." >&2
-    echo "     Ubuntu/Debian: sudo apt-get install -y git golang-go clang bpftool linux-headers-$(uname -r)" >&2
+    echo "     instala: git, Go, clang, bpftool y los kernel headers de tu distro (${DISTRO_ID:-linux})" >&2
     exit 1
   fi
 done

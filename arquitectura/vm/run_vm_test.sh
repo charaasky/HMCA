@@ -32,11 +32,16 @@ CPUS=4
 DISK_GB=40
 SSH_PORT=2222
 
+. "$HERE/../scripts/distro.sh" 2>/dev/null || true
 echo "==> verificando dependencias (qemu + cloud-image-utils)"
 if ! command -v qemu-system-x86_64 >/dev/null 2>&1 || ! command -v cloud-localds >/dev/null 2>&1; then
-  echo "    instalando qemu-system-x86 qemu-utils cloud-image-utils ..."
-  sudo apt-get update || true   # no abortar por repos de terceros rotos
-  sudo apt-get install -y qemu-system-x86 qemu-utils cloud-image-utils
+  if [ "${distro_ok:-0}" -ne 0 ]; then
+    echo "    distro no soportada (${DISTRO_ID:-unknown}); instalá qemu + cloud-image-utils a mano" >&2
+    exit 1
+  fi
+  echo "    instalando ${QEMU_PKGS} (${DISTRO_ID}) ..."
+  sudo ${PKG_UPDATE} || true
+  sudo ${PKG_INSTALL} ${QEMU_PKGS}
 fi
 
 [ -e /dev/kvm ] || { echo "ERROR: /dev/kvm no disponible"; exit 1; }

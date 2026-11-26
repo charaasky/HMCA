@@ -21,16 +21,8 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 DASH_USER="${HCMA_DASH_USER:-${SUDO_USER:-$(logname 2>/dev/null || true)}}"
 [ -n "${DASH_USER}" ] || DASH_USER="root"
 
-# Detectar distro para elegir el paquete de kernel headers correcto (Ubuntu vs Debian).
-if [ -f /etc/os-release ]; then
-  . /etc/os-release
-else
-  ID=unknown
-fi
-case "${ID:-}" in
-  debian) HEADERS_PKG="linux-headers-amd64" ;;
-  *)      HEADERS_PKG="linux-headers-generic" ;;
-esac
+# Detectar distro (apt/dnf/pacman/zypper/apk) y mapear paquetes.
+. "${REPO}/arquitectura/scripts/distro.sh"
 MONITOR_DROPIN="/etc/systemd/system/hcma-monitor.service.d/vsock.conf"
 
 paso() { echo ""; echo "================================================================"; echo " $1"; echo "================================================================"; }
@@ -45,16 +37,16 @@ check_dep() {
     FALTANTES="${FALTANTES} $2"
   fi
 }
-check_dep python3   python3
+check_dep python3   "${PYTHON_PKG}"
 check_dep git       git
-check_dep go        golang-go
+check_dep go        "${GO_PKG}"
 check_dep clang     clang
-check_dep bpftool   bpftool
-check_dep ss        iproute2
-check_dep useradd   passwd
-check_dep groupadd  passwd
-check_dep usermod   passwd
-check_dep nft       nftables
+check_dep bpftool   "${BPFTOOL_PKG}"
+check_dep ss        "${SS_PKG}"
+check_dep useradd   "${SHADOW_PKG}"
+check_dep groupadd  "${SHADOW_PKG}"
+check_dep usermod   "${SHADOW_PKG}"
+check_dep nft       "${NFT_PKG}"
 check_dep curl      curl
 check_dep systemctl systemd
 if [ -e /dev/kvm ]; then
@@ -63,11 +55,14 @@ else
   echo "  aviso: /dev/kvm ausente — Firecracker no podrá arrancar la microVM"
 fi
 if [ -n "${FALTANTES}" ]; then
-  echo ""
-  echo "  Instalando dependencias faltantes:${FALTANTES} ${HEADERS_PKG}"
-  apt-get update
-  # shellcheck disable=SC2086
-  apt-get install -y${FALTANTES} ${HEADERS_PKG}
+  if [ "${distro_ok}" -ne 0 ]; then
+    echo "  No se auto-instalan dependencias: distro no soportada (${DISTRO_ID}). Instalalas a mano."
+  else
+    echo "  Instalando dependencias faltantes:${FALTANTES} ${HEADERS_PKG}"
+    ${PKG_UPDATE} || true
+    # shellcheck disable=SC2086
+    ${PKG_INSTALL} ${FALTANTES} ${HEADERS_PKG}
+  fi
 fi
 
 paso "[2/6] HCMA core (monitor / proxy / dashboard / firma)"
