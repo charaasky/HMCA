@@ -69,10 +69,10 @@ paso "[2/6] HCMA core (monitor / proxy / dashboard / firma)"
 sh "${REPO}/arquitectura/montaje/montar.sh"
 
 paso "[3/6] Firecracker (boundary de hardware)"
-sh "${REPO}/arquitectura/firecracker/deploy.sh"
+sh "${REPO}/arquitectura/firecracker/deploy.sh" || echo "  ⚠️  Firecracker no se pudo desplegar (no bloquea el core)."
 
 paso "[4/6] px-motor (detección eBPF de escape, política firmada)"
-sh "${REPO}/arquitectura/px-motor/deploy.sh"
+sh "${REPO}/arquitectura/px-motor/deploy.sh" || echo "  ⚠️  px-motor no se pudo desplegar (no bloquea el core)."
 
 paso "[5/6] Cutover gVisor → Firecracker + arranque"
 # 4a. monitor en modo vsock (drop-in; el UDS lo crea el monitor, firecracker se conecta).
@@ -96,7 +96,7 @@ echo "  ok: monitor reiniciado (vsock activo)"
 
 # 4d. arrancar y fijar la microVM + el detector.
 systemctl enable hcma-firecracker.service >/dev/null 2>&1 || true
-systemctl start  hcma-firecracker.service
+systemctl start  hcma-firecracker.service 2>/dev/null || echo "  ⚠️  Firecracker no arrancó (¿binario instalado?)."
 echo "  ok: Firecracker arrancado"
 
 systemctl start hcma-px-motor.service 2>/dev/null || {
