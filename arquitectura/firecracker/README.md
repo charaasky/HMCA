@@ -142,3 +142,37 @@ El agente conecta a `CID=2` puerto `5000`, así que Firecracker reenvía a
 `/run/hcma/vsock.sock_5000` (passthrough crudo, sin encabezado binario). El monitor escucha en
 esa ruta (`HCMA_VSOCK_UDS=/run/hcma/vsock.sock_5000`, seteado por `instalar.sh`); `config.json`
 solo aporta la base `/run/hcma/vsock.sock`.
+
+## Estado: validado end-to-end (2026-11-26)
+
+El camino completo quedó verificado en un host Debian 14 (gcc 16, kernel 7.2):
+
+```
+agente (guest Debian) ── virtio-vsock (CID=2:5000) ──▶ firecracker ──▶ /run/hcma/vsock.sock_5000 ──▶ monitor
+```
+
+- `hcma-firecracker` → `active`: la microVM bootea Debian, monta el rootfs ext4 read-only (`vda`) y ejecuta `/init`.
+- `hcma-px-motor` → `active`: eBPF cargado y política firmada verificada.
+- El agente conecta por vsock y el monitor responde (`estado` + `propuesta_write` → `ok: True`).
+
+### Ajustes del kernel huésped (gcc >= 15 y Firecracker)
+
+`build_vmlinux.sh` los aplica solo:
+
+- `-std=gnu11` forzado en `realmode` y `EFI stub` (gcc 15+ usa C23 y rompe `bool`/`false`/`true`).
+- `VIRTIO_MMIO` (no `VIRTIO_PCI`): Firecracker expone los dispositivos por MMIO.
+- `VSOCKETS` + `VIRTIO_VSOCKETS` + `VIRTIO_VSOCKETS_COMMON` built-in.
+- `SYSTEM_TRUSTED_KEYRING` / `SYSTEM_REVOCATION_LIST` / `SECONDARY_TRUSTED_KEYRING` off (evita OpenSSL).
+- `DEBUG_INFO` / `DEBUG_INFO_BTF` off (evita `pahole`, compila más rápido).
+- `WERROR` off (los warnings nuevos de gcc 16 no se vuelven error).
+- `MODULES` off (todo built-in).
+
+### Ajustes del host (socket vsock)
+
+- `hcma-firecracker.service`: `ReadWritePaths=/run/hcma` para que `ProtectSystem=strict` no deje el socket base read-only.
+- El monitor chown `/run/hcma` → grupo `hcma-vsock` + `chmod 0771` **al inicio** de `main()`, para evitar la carrera con el arranque de Firecracker.
+
+### Pendientes (no bloquean el core)
+
+- `agente_vsock.py` es un demo (conecta → propone → sale); `guest_init` lo relanza cada 5s. El loop de servicio real del agente es el siguiente paso.
+- La ceremonia de CORTE (checkpoint firmado + cutover del store real) sigue siendo manual, por diseño.
