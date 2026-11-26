@@ -27,6 +27,8 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+DASH_USER="${HCMA_DASH_USER:-${SUDO_USER:-$(logname 2>/dev/null || true)}}"
+[ -n "${DASH_USER}" ] || DASH_USER="root"
 FIRECRACKER_DIR="/var/lib/hcma-firecracker"
 FIRECRACKER_BIN="/usr/bin/firecracker"
 
@@ -38,7 +40,7 @@ paso() { echo ""; echo "=== $1 ==="; }
 # Resuelve el placeholder __HCMA_REPO__ con la ruta real del repo al instalar una unidad
 # systemd (portabilidad: los .service no hardcodean /home/charasky).
 instalar_servicio() {
-  sed "s|__HCMA_REPO__|${REPO}|g" "$1" > "$2"
+  sed -e "s|__HCMA_REPO__|${REPO}|g" -e "s|__HCMA_DASH_USER__|${DASH_USER:-}|g" "$1" > "$2"
   chmod 0644 "$2"
   echo "  ok: $2"
 }
@@ -95,7 +97,7 @@ else
   groupadd --system --gid 1002 hcma-audit
   echo "  creado: grupo hcma-audit (gid 1002)"
 fi
-usermod -a -G hcma-audit charasky 2>/dev/null || echo "  AVISO: no se pudo agregar charasky a hcma-audit"
+usermod -a -G hcma-audit "$DASH_USER" 2>/dev/null || echo "  AVISO: no se pudo agregar $DASH_USER a hcma-audit"
 
 # ---- 4. permisos del store (read-only para el dashboard) ----
 paso "[4/6] Permisos del store del monitor (read-only hcma-audit)"

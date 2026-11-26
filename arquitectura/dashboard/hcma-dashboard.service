@@ -22,8 +22,8 @@ After=hcma-monitor.service hcma-proxy.service
 
 [Service]
 Type=simple
-User=charasky
-Group=charasky
+User=__HCMA_DASH_USER__
+Group=__HCMA_DASH_USER__
 # grupo de auditoría: lectura del store del monitor + conexión al socket de gobernanza
 SupplementaryGroups=hcma-audit
 WorkingDirectory=__HCMA_REPO__/arquitectura/dashboard

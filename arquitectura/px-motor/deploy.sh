@@ -35,7 +35,7 @@ paso() { echo ""; echo "=== $1 ==="; }
 # Resuelve el placeholder __HCMA_REPO__ con la ruta real del repo al instalar una unidad
 # systemd (portabilidad: los .service no hardcodean /home/charasky).
 instalar_servicio() {
-  sed "s|__HCMA_REPO__|${REPO}|g" "$1" > "$2"
+  sed -e "s|__HCMA_REPO__|${REPO}|g" -e "s|__HCMA_DASH_USER__|${DASH_USER:-}|g" "$1" > "$2"
   chmod 0644 "$2"
   echo "  ok: $2"
 }

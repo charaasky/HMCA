@@ -18,20 +18,56 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+DASH_USER="${HCMA_DASH_USER:-${SUDO_USER:-$(logname 2>/dev/null || true)}}"
+[ -n "${DASH_USER}" ] || DASH_USER="root"
 MONITOR_DROPIN="/etc/systemd/system/hcma-monitor.service.d/vsock.conf"
 
 paso() { echo ""; echo "================================================================"; echo " $1"; echo "================================================================"; }
 
-paso "[1/5] HCMA core (monitor / proxy / dashboard / firma)"
+paso "[1/6] Preflight: dependencias del sistema"
+FALTANTES=""
+check_dep() {
+  if command -v "$1" >/dev/null 2>&1; then
+    echo "  ok: $1"
+  else
+    echo "  falta: $1  (paquete: $2)"
+    FALTANTES="${FALTANTES} $2"
+  fi
+}
+check_dep python3   python3
+check_dep git       git
+check_dep go        golang-go
+check_dep clang     clang
+check_dep bpftool   bpftool
+check_dep ss        iproute2
+check_dep useradd   passwd
+check_dep groupadd  passwd
+check_dep usermod   passwd
+check_dep nft       nftables
+check_dep systemctl systemd
+if [ -e /dev/kvm ]; then
+  echo "  ok: /dev/kvm (KVM)"
+else
+  echo "  aviso: /dev/kvm ausente — Firecracker no podrá arrancar la microVM"
+fi
+if [ -n "${FALTANTES}" ]; then
+  echo ""
+  echo "  Instalando dependencias faltantes:${FALTANTES} linux-headers-generic"
+  apt-get update
+  # shellcheck disable=SC2086
+  apt-get install -y${FALTANTES} linux-headers-generic
+fi
+
+paso "[2/6] HCMA core (monitor / proxy / dashboard / firma)"
 sh "${REPO}/arquitectura/montaje/montar.sh"
 
-paso "[2/5] Firecracker (boundary de hardware)"
+paso "[3/6] Firecracker (boundary de hardware)"
 sh "${REPO}/arquitectura/firecracker/deploy.sh"
 
-paso "[3/5] px-motor (detección eBPF de escape, política firmada)"
+paso "[4/6] px-motor (detección eBPF de escape, política firmada)"
 sh "${REPO}/arquitectura/px-motor/deploy.sh"
 
-paso "[4/5] Cutover gVisor → Firecracker + arranque"
+paso "[5/6] Cutover gVisor → Firecracker + arranque"
 # 4a. monitor en modo vsock (drop-in; el UDS lo crea el monitor, firecracker se conecta).
 install -d -m 0755 /etc/systemd/system/hcma-monitor.service.d
 printf '[Service]\nEnvironment=HCMA_VSOCK_UDS=/run/hcma/vsock.sock\n' > "${MONITOR_DROPIN}"
@@ -65,7 +101,7 @@ systemctl start hcma-px-motor.service 2>/dev/null || {
 systemctl restart hcma-dashboard.service hcma-proxy.service
 echo "  ok: dashboard + proxy arrancados (recargados)"
 
-paso "[5/5] Verificación de salud"
+paso "[6/6] Verificación de salud"
 echo "  servicios:"
 for svc in hcma-monitor hcma-proxy hcma-dashboard hcma-firecracker hcma-px-motor; do
   st="$(systemctl is-active "$svc.service" 2>/dev/null || echo inactivo)"
@@ -79,7 +115,7 @@ DASH_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 # Credencial inicial del admin (se muestra UNA sola vez; el primer login fuerza el cambio).
 # Se corre como charasky (usuario del dashboard) para no romper el ownership de auth.db.
 DASH_DIR="${REPO}/arquitectura/dashboard"
-ADMIN_LINE="$(sudo -u charasky python3 "${DASH_DIR}/setup_admin.py" 2>/dev/null || true)"
+ADMIN_LINE="$(sudo -u "$DASH_USER" python3 "${DASH_DIR}/setup_admin.py" 2>/dev/null || true)"
 ADMIN_USER="$(printf '%s' "$ADMIN_LINE" | awk '{print $1}')"
 ADMIN_PW="$(printf '%s' "$ADMIN_LINE" | awk '{print $2}')"
 
