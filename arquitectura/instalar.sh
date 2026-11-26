@@ -20,6 +20,17 @@ fi
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 DASH_USER="${HCMA_DASH_USER:-${SUDO_USER:-$(logname 2>/dev/null || true)}}"
 [ -n "${DASH_USER}" ] || DASH_USER="root"
+
+# Detectar distro para elegir el paquete de kernel headers correcto (Ubuntu vs Debian).
+if [ -f /etc/os-release ]; then
+  . /etc/os-release
+else
+  ID=unknown
+fi
+case "${ID:-}" in
+  debian) HEADERS_PKG="linux-headers-amd64" ;;
+  *)      HEADERS_PKG="linux-headers-generic" ;;
+esac
 MONITOR_DROPIN="/etc/systemd/system/hcma-monitor.service.d/vsock.conf"
 
 paso() { echo ""; echo "================================================================"; echo " $1"; echo "================================================================"; }
@@ -44,6 +55,7 @@ check_dep useradd   passwd
 check_dep groupadd  passwd
 check_dep usermod   passwd
 check_dep nft       nftables
+check_dep curl      curl
 check_dep systemctl systemd
 if [ -e /dev/kvm ]; then
   echo "  ok: /dev/kvm (KVM)"
@@ -52,10 +64,10 @@ else
 fi
 if [ -n "${FALTANTES}" ]; then
   echo ""
-  echo "  Instalando dependencias faltantes:${FALTANTES} linux-headers-generic"
+  echo "  Instalando dependencias faltantes:${FALTANTES} ${HEADERS_PKG}"
   apt-get update
   # shellcheck disable=SC2086
-  apt-get install -y${FALTANTES} linux-headers-generic
+  apt-get install -y${FALTANTES} ${HEADERS_PKG}
 fi
 
 paso "[2/6] HCMA core (monitor / proxy / dashboard / firma)"

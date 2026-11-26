@@ -51,9 +51,24 @@ paso "[1/6] Instalar firecracker"
 if [ -x "${FIRECRACKER_BIN}" ]; then
   echo "  ok: firecracker ya instalado en ${FIRECRACKER_BIN}"
 else
-  echo "  instalando firecracker vía apt..."
-  apt-get update
-  apt-get install -y firecracker
+  if [ -f /etc/os-release ]; then
+    . /etc/os-release
+  else
+    ID=unknown
+  fi
+  if [ "${ID:-}" = "ubuntu" ]; then
+    echo "  instalando firecracker vía apt (Ubuntu)..."
+    apt-get update || true
+    apt-get install -y firecracker
+  else
+    echo "  firecracker no está en apt (${ID:-unknown}); descargando binario de GitHub..."
+    FC_VERSION="${FIRECRACKER_VERSION:-1.10.1}"
+    FC_TGZ="/tmp/firecracker-v${FC_VERSION}-x86_64.tgz"
+    curl -fsSL -o "$FC_TGZ" "https://github.com/firecracker-microvm/firecracker/releases/download/v${FC_VERSION}/firecracker-v${FC_VERSION}-x86_64.tgz"
+    mkdir -p /tmp/fc-extract
+    tar -xzf "$FC_TGZ" -C /tmp/fc-extract --strip-components=1
+    install -m 0755 /tmp/fc-extract/firecracker "${FIRECRACKER_BIN}"
+  fi
   if [ ! -x "${FIRECRACKER_BIN}" ]; then
     echo "  ❌ firecracker no quedó en ${FIRECRACKER_BIN}; verificalo e instalalo a mano." >&2
     exit 1
