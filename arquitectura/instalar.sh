@@ -75,9 +75,10 @@ paso "[4/6] px-motor (detección eBPF de escape, política firmada)"
 sh "${REPO}/arquitectura/px-motor/deploy.sh" || echo "  ⚠️  px-motor no se pudo desplegar (no bloquea el core)."
 
 paso "[5/6] Cutover gVisor → Firecracker + arranque"
-# 4a. monitor en modo vsock (drop-in; el UDS lo crea el monitor, firecracker se conecta).
+# 4a. monitor en modo vsock. Firecracker reenvía guest->host a <uds_path>_<puerto>; el agente
+#     conecta a CID=2 puerto 5000, así que el monitor escucha en la ruta POR PUERTO (no la base).
 install -d -m 0755 /etc/systemd/system/hcma-monitor.service.d
-printf '[Service]\nEnvironment=HCMA_VSOCK_UDS=/run/hcma/vsock.sock\n' > "${MONITOR_DROPIN}"
+printf '[Service]\nEnvironment=HCMA_VSOCK_UDS=/run/hcma/vsock.sock_5000\n' > "${MONITOR_DROPIN}"
 echo "  ok: monitor en modo vsock (${MONITOR_DROPIN})"
 
 systemctl daemon-reload

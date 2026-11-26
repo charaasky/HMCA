@@ -4,7 +4,7 @@
 """agente_vsock.py — entrypoint del AGENTE dentro de la microVM Firecracker.
 
 A diferencia de agente_cliente.py (gVisor, fd heredado), acá el transporte es virtio-vsock:
-el guest conecta a CID_HOST=2, puerto 5000, y Firecracker reenvía al UDS /run/hcma/vsock.sock
+el guest conecta a CID_HOST=2, puerto 5000, y Firecracker reenvía al UDS /run/hcma/vsock.sock_5000
 que el MONITOR crea y escucha.
 
 El framing NO cambia (monitor_ipc): el agente PROPOSE, el monitor DECIDE.

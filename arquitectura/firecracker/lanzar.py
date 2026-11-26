@@ -27,7 +27,7 @@ import sys
 
 FIRECRACKER = os.environ.get("HCMA_FIRECRACKER", "/usr/bin/firecracker")
 CONFIG = os.environ.get("HCMA_FIRECRACKER_CONFIG", "/var/lib/hcma-firecracker/config.json")
-VSOCK_UDS = "/run/hcma/vsock.sock"
+VSOCK_UDS = "/run/hcma/vsock.sock_5000"
 API_SOCK = os.environ.get("HCMA_FIRECRACKER_API_SOCK", "/run/hcma-firecracker/api.sock")
 
 

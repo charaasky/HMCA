@@ -9,7 +9,7 @@
 # no systemd.
 #
 # PROPAGACIÓN DE LA MUERTE: si el monitor muere, el agente debe detenerse (BindsTo). El monitor
-# es el dueño del UDS /run/hcma/vsock.sock; si el monitor cae, el listener desaparece y firecracker
+# es el dueño del UDS por-puerto /run/hcma/vsock.sock_5000; si el monitor cae, el listener desaparece y firecracker
 # ya no puede forwardear el vsock → el agente queda sin canal. BindsTo fuerza el apagado conjunto.
 #
 # El VMM corre como usuario NO-root hcma-firecracker (grupos kvm + hcma-vsock): /dev/kvm y
@@ -44,7 +44,7 @@ Environment=HCMA_FIRECRACKER=/usr/bin/firecracker
 
 # NO-root: Firecracker corre como usuario dedicado hcma-firecracker. Necesita:
 #   - kvm        -> /dev/kvm y /dev/vhost-vsock (660 root:kvm).
-#   - hcma-vsock -> conectar al UDS /run/hcma/vsock.sock (0660 hcma-vsock, creado por el monitor).
+#   - hcma-vsock -> conectar al UDS /run/hcma/vsock.sock_5000 (0660 hcma-vsock, creado por el monitor).
 # Sin capacidades: el acceso a esos dispositivos es por GRUPO, no por capability.
 User=hcma-firecracker
 Group=hcma-firecracker

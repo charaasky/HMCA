@@ -135,10 +135,10 @@ El `config.json` ya incluye el dispositivo `vsock` (`guest_cid=3`,
 `uds_path=/run/hcma/vsock.sock`) y `init=/init` en `boot_args`. El `guest_init` monta
 `/proc` `/sys` `/dev` y arranca `agente_vsock.py`, que conecta a `CID_HOST=2` puerto `5000`.
 
-### PENDIENTE — shim de protocolo vsock en el monitor
+### Transporte vsock (guest → host)
 
-Falta la integración vsock del lado del monitor: hoy `monitor_multiplex` trata el UDS
-`/run/hcma/vsock.sock` como un stream crudo de `monitor_ipc`, pero Firecracker multiplexa las
-conexiones vsock del guest con su propio encabezado. Hasta no parsear ese encabezado, el guest
-arranca pero el agente **no** llega a hablar con el monitor de punta a punta. Es el siguiente
-paso de integración (no es un bug del instalador).
+Firecracker mapea cada puerto vsock del guest a un UDS **por puerto**: `<uds_path>_<puerto>`.
+El agente conecta a `CID=2` puerto `5000`, así que Firecracker reenvía a
+`/run/hcma/vsock.sock_5000` (passthrough crudo, sin encabezado binario). El monitor escucha en
+esa ruta (`HCMA_VSOCK_UDS=/run/hcma/vsock.sock_5000`, seteado por `instalar.sh`); `config.json`
+solo aporta la base `/run/hcma/vsock.sock`.
