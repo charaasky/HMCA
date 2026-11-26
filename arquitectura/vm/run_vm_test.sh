@@ -31,6 +31,7 @@ RAM_MB=8192
 CPUS=4
 DISK_GB=40
 SSH_PORT=2222
+DASH_FWD="${HCMA_DASH_FWD:-8788}"   # puerto del host para el dashboard (8787 suele estar ocupado)
 
 . "$HERE/../scripts/distro.sh" 2>/dev/null || true
 echo "==> verificando dependencias (qemu + cloud-image-utils)"
@@ -86,7 +87,7 @@ qemu-system-x86_64 \
   -enable-kvm -cpu host -smp "$CPUS" -m "$RAM_MB" \
   -drive file="$IMAGE",if=virtio \
   -drive file="$SEED",if=virtio,format=raw \
-  -netdev user,id=net0,hostfwd=tcp::${SSH_PORT}-:22,hostfwd=tcp::8787-:8787 \
+  -netdev user,id=net0,hostfwd=tcp::${SSH_PORT}-:22,hostfwd=tcp::${DASH_FWD}-:8787 \
   -device virtio-net-pci,netdev=net0 \
   -display none -daemonize
 
@@ -113,7 +114,7 @@ ssh $SSH_OPTS ubuntu@localhost 'bash /tmp/provision.sh'
 echo ""
 echo ""
 echo "==> TEST COMPLETO =="
-echo "    Dashboard:   https://localhost:8787/   (aceptá el certificado autofirmado)"
+echo "    Dashboard:   https://localhost:${DASH_FWD}/   (aceptá el certificado autofirmado)
 echo "    SSH a la VM: ssh -p $SSH_PORT ubuntu@localhost"
 echo "    log:         tail -f /var/log/hcma-install.log   (dentro de la VM)"
 echo ""
