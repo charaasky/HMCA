@@ -72,6 +72,10 @@ make olddefconfig
 grep -q 'REALMODE_CFLAGS.*-std=gnu11' arch/x86/Makefile || \
   sed -i -E 's/^(REALMODE_CFLAGS[[:space:]]*:= )/\1-std=gnu11 /' arch/x86/Makefile
 
+# El EFI stub (drivers/firmware/efi/libstub) también sobreescribe KBUILD_CFLAGS sin -std=gnu11.
+grep -q -- '-D__DISABLE_EXPORTS -std=gnu11' drivers/firmware/efi/libstub/Makefile || \
+  sed -i 's/-D__DISABLE_EXPORTS$/-D__DISABLE_EXPORTS -std=gnu11/' drivers/firmware/efi/libstub/Makefile
+
 echo "==> compilando vmlinux (puede tardar varios minutos) ..."
 make -j"$(nproc)" vmlinux
 
