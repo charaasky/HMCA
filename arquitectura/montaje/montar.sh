@@ -67,6 +67,16 @@ else
   groupadd --system --gid 1001 hcma-red
   echo "  creado: grupo hcma-red (gid 1001)"
 fi
+
+# hcma-vsock: lo usa el monitor (SupplementaryGroups) en modo vsock. Crearlo acá (y no
+# solo en firecracker/deploy.sh) para que el monitor arranque aunque Firecracker no esté
+# instalado todavía.
+if getent group hcma-vsock >/dev/null 2>&1; then
+  echo "  ok: grupo hcma-vsock ya existe"
+else
+  groupadd --system hcma-vsock
+  echo "  creado: grupo hcma-vsock"
+fi
 for u in hcma-proxy hcma-monitor; do
   if ! id -nG "$u" 2>/dev/null | tr ' ' '\n' | grep -qx hcma-red; then
     usermod -a -G hcma-red "$u"

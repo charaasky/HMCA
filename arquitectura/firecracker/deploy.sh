@@ -51,13 +51,16 @@ paso "[1/6] Instalar firecracker"
 if [ -x "${FIRECRACKER_BIN}" ]; then
   echo "  ok: firecracker ya instalado en ${FIRECRACKER_BIN}"
 else
-  . "${REPO}/arquitectura/scripts/distro.sh"
-  if [ "${DISTRO_ID}" = "ubuntu" ]; then
-    echo "  instalando firecracker vía apt (Ubuntu)..."
+  if command -v apt-get >/dev/null 2>&1; then
     apt-get update || true
-    apt-get install -y firecracker
-  else
-    echo "  firecracker no está en los repos de ${DISTRO_ID}; descargando binario de GitHub..."
+    if apt-cache show firecracker >/dev/null 2>&1; then
+      echo "  instalando firecracker vía apt..."
+      apt-get install -y firecracker
+      FC_OK=1
+    fi
+  fi
+  if [ "${FC_OK:-0}" != "1" ]; then
+    echo "  firecracker no está en los repos; descargando binario de GitHub..."
     FC_VERSION="${FIRECRACKER_VERSION:-1.18.0}"
     FC_TGZ="/tmp/firecracker-v${FC_VERSION}-x86_64.tgz"
     curl -fsSL -o "$FC_TGZ" "https://github.com/firecracker-microvm/firecracker/releases/download/v${FC_VERSION}/firecracker-v${FC_VERSION}-x86_64.tgz"
