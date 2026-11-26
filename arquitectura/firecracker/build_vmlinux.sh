@@ -51,7 +51,7 @@ scripts/config \
   --disable SECONDARY_TRUSTED_KEYRING \
   --disable SYSTEM_REVOCATION_LIST \
   --enable VIRTIO \
-  --enable VIRTIO_PCI \
+  --enable VIRTIO_MMIO \
   --enable VIRTIO_BLK \
   --enable VSOCKETS \
   --enable VIRTIO_VSOCKETS \
