@@ -88,3 +88,6 @@ Thumbs.db
 # el entregable final; ambos son fuente del envío, no artefactos regenerables.
 !hcma_workshop/entregables/manifest.json
 !hcma_workshop/entregables/paper/paper_hcma_workshop.pdf
+
+# ── VM test harness (QEMU cloud image + cloud-init seed) — never commit ──
+arquitectura/vm/.vm/
