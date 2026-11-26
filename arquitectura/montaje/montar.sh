@@ -131,6 +131,13 @@ usermod -a -G hcma-audit "$DASH_USER" 2>/dev/null || echo "  AVISO: no se pudo a
 # Ledger de ejecución del proxy: escritura SOLO hcma-proxy (997); lectura del grupo auditoría.
 # El archivo se crea 0644 (umask) por el proxy => ya es legible por el grupo.
 install -d -m 0750 -o hcma-proxy -g hcma-audit /var/lib/hcma-proxy/ledger
+# Estado de runtime del monitor en instalación limpia: sin store/, contador de época
+# y nonces.log el monitor no arranca. La ceremonia de CORTE (checkpoint firmado +
+# cutover del store real) sigue siendo manual; esto solo deja un estado mínimo
+# arrancable y es idempotente (no pisa estado ya existente).
+install -d -m 0750 -o hcma-monitor -g hcma-audit /var/lib/hcma-monitor/store
+[ -f /var/lib/hcma-monitor/epoca ] || printf '0\n' | install -m 0640 -o hcma-monitor -g hcma-monitor /dev/stdin /var/lib/hcma-monitor/epoca
+[ -f /var/lib/hcma-monitor/nonces.log ] || install -m 0640 -o hcma-monitor -g hcma-audit /dev/null /var/lib/hcma-monitor/nonces.log
 # nonces.log (autorizaciones) vive en el home del monitor: damos traverse+lectura SOLO al grupo
 # auditoría. El store (memoria.db 0600) y lib/ (0600) siguen inaccesibles para el grupo.
 chmod 0710 /var/lib/hcma-monitor
