@@ -35,7 +35,7 @@ SSH_PORT=2222
 echo "==> verificando dependencias (qemu + cloud-image-utils)"
 if ! command -v qemu-system-x86_64 >/dev/null 2>&1 || ! command -v cloud-localds >/dev/null 2>&1; then
   echo "    instalando qemu-system-x86 qemu-utils cloud-image-utils ..."
-  sudo apt-get update
+  sudo apt-get update || true   # no abortar por repos de terceros rotos
   sudo apt-get install -y qemu-system-x86 qemu-utils cloud-image-utils
 fi
 
