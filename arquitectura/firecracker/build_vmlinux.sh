@@ -66,7 +66,8 @@ make olddefconfig
 
 # gcc >= 15 usa C23 por defecto; el código realmode (16-bit) sobreescribe KBUILD_CFLAGS
 # y no lleva -std=gnu11, lo que rompe bool/false/true (keywords en C23). Forzamos gnu11 ahí.
-sed -i -E 's/^(REALMODE_CFLAGS[[:space:]]*:= )/\1-std=gnu11 /' arch/x86/Makefile
+grep -q 'REALMODE_CFLAGS.*-std=gnu11' arch/x86/Makefile || \
+  sed -i -E 's/^(REALMODE_CFLAGS[[:space:]]*:= )/\1-std=gnu11 /' arch/x86/Makefile
 
 echo "==> compilando vmlinux (puede tardar varios minutos) ..."
 make -j"$(nproc)" vmlinux
