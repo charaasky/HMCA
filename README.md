@@ -31,6 +31,11 @@ The installer is **idempotent** and leaves everything running. At the end it pri
 
 Health check: `sudo sh arquitectura/montaje/verificar.sh`.
 
+Uninstall: `sudo sh arquitectura/desinstalar.sh`.
+
+The installer auto-detects the Linux distro and uses the right package manager:
+Debian/Ubuntu (`apt`), Fedora/RHEL (`dnf`), Arch (`pacman`), openSUSE (`zypper`), Alpine (`apk`).
+
 ## Why is `sudo` required?
 
 The installer needs root **only once, at install time**, to set up the security boundary. Once
@@ -54,15 +59,29 @@ You can run a partial "dev mode" (dashboard + monitor as your user, without syst
 KVM or eBPF), but you lose the security boundary. The firewall, KVM and eBPF cannot be done
 without root by design.
 
+## Testing in a clean VM
+
+To validate `instalar.sh` end-to-end on a virgin machine without touching your host, use the
+QEMU/cloud-init harness in [`arquitectura/vm/`](arquitectura/vm/README.md):
+
+```bash
+cd arquitectura/vm
+sh run_vm_test.sh   # boots Ubuntu 24.04, clones the repo, runs the installer, verifies health
+sh teardown.sh      # (optional) removes the VM image and frees disk
+```
+
+Requires KVM on the host (with nested virt enabled for Firecracker).
+
 ## Repository layout
 
 ```
 arquitectura/
   dashboard/      # web UI + LLM gateway + config persistence (encrypted API keys)
   scripts/        # monitor, proxy, memory store, skills, calculator, incidentes, ...
-  montaje/        # installer + health check
+  montaje/        # installer + health check + desinstalar.sh
   firecracker/    # microVM deployment
-  px-motor/       # eBPF escape-detector deployment (source lives in a separate repo)
+  px-motor/       # eBPF escape-detector deployment (source in github.com/charaasky/motor-go)
+  vm/             # QEMU/cloud-init harness to test the full install in a clean VM
   gvisor/         # legacy sandbox bundles (pre-cutover)
 ```
 
@@ -92,5 +111,6 @@ corpus and loaders are derived and attributed, not redistributed raw:
 ## Security binary (`px-motor`)
 
 The `px-motor` detector is built **from source** by `arquitectura/px-motor/deploy.sh` (its source
-lives in a separate repository). **No compiled binary is committed here** — see the install step
-above for how it is built and deployed.
+lives in <https://github.com/charaasky/motor-go>). **No compiled binary is committed here** — the
+installer clones and compiles it. motor-go is dual-licensed: Go detection logic **CC BY-NC-SA 4.0**,
+eBPF probes (`*.bpf.c`) **GPL-2.0**.

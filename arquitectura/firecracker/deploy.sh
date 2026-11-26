@@ -58,7 +58,7 @@ else
     apt-get install -y firecracker
   else
     echo "  firecracker no está en los repos de ${DISTRO_ID}; descargando binario de GitHub..."
-    FC_VERSION="${FIRECRACKER_VERSION:-1.10.1}"
+    FC_VERSION="${FIRECRACKER_VERSION:-1.18.0}"
     FC_TGZ="/tmp/firecracker-v${FC_VERSION}-x86_64.tgz"
     curl -fsSL -o "$FC_TGZ" "https://github.com/firecracker-microvm/firecracker/releases/download/v${FC_VERSION}/firecracker-v${FC_VERSION}-x86_64.tgz"
     mkdir -p /tmp/fc-extract
