@@ -1433,6 +1433,19 @@ class Handler(BaseHTTPRequestHandler):
             elif mt not in ("text", "image_in", "image_out", "audio_in", "audio_out",
                             "video", "multimodal"):
                 return self._send(400, {"ok": False, "error": "model_type inválido: %s" % mt})
+        if "local_llm" in body:
+            ll = body["local_llm"]
+            if not isinstance(ll, dict):
+                return self._send(400, {"ok": False, "error": "local_llm debe ser un objeto"})
+            try:
+                port = int(ll.get("port") or 8080)
+            except (TypeError, ValueError):
+                return self._send(400, {"ok": False, "error": "local_llm.port inválido"})
+            data["local_llm"] = {
+                "enabled": bool(ll.get("enabled")),
+                "port": max(1, min(port, 65535)),
+                "model": str(ll.get("model") or "local").strip() or "local",
+            }
         llm_config.save(data)
         return self._send(200, {"ok": True, "config": llm_config.masked()})
 

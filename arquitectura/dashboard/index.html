@@ -295,6 +295,16 @@
         <select id="llm_model" onchange="llmModelSelect('llm_model','llm_model_custom')" style="min-width:220px"></select>
         <input type="text" id="llm_model_custom" style="min-width:220px;display:none" placeholder="custom model ID"></label>
     </div>
+    <div class="dt-toolbar" style="margin-bottom:10px">
+      <label style="flex-direction:row;align-items:center;gap:6px">
+        <input type="checkbox" id="llm_local_enabled" onchange="llmLocalToggle()">
+        <span data-i18n="llm_local_enabled">LLM local (en la microVM)</span></label>
+      <label><span data-i18n="llm_local_port">puerto</span>
+        <input type="number" id="llm_local_port" min="1" max="65535" style="min-width:90px"></label>
+      <label><span data-i18n="llm_local_model">modelo local</span>
+        <input type="text" id="llm_local_model" style="min-width:180px" placeholder="mi-modelo-7b"></label>
+    </div>
+    <div class="muted" style="margin-bottom:10px;font-size:11px" data-i18n="llm_local_note">Corré el LLM dentro de la microVM Firecracker (ver arquitectura/firecracker/LLM_LOCAL.md). El gateway apunta a 127.0.0.1:puerto y los facts se quedan locales.</div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
       <button id="llm_load_models" onclick="loadProviderModels(true)" data-i18n="llm_cargar_gratis" style="display:none">cargar modelos gratis</button>
       <span class="muted" id="llm_free_count"></span>
@@ -803,7 +813,9 @@ const I18N = {
   llm_model:'modelo', llm_model_type:'tipo de modelo', guardar:'guardar',
   probar_conexion:'probar conexión', llm_guardado:'configuración guardada',
   llm_key_configurada:'API key configurada', llm_key_falta:'API key no configurada', llm_modelo_activo:'modelo activo',
-  help_llm:'Configura la conexión del agente al LLM. La API key se guarda encriptada (AES-256-GCM) y nunca se vuelve a mostrar (solo sus últimos 4 caracteres).'
+  help_llm:'Configura la conexión del agente al LLM. La API key se guarda encriptada (AES-256-GCM) y nunca se vuelve a mostrar (solo sus últimos 4 caracteres).',
+  llm_local_enabled:'LLM local (en la microVM)', llm_local_port:'puerto', llm_local_model:'modelo local',
+  llm_local_note:'Corré el LLM dentro de la microVM Firecracker (ver arquitectura/firecracker/LLM_LOCAL.md). El gateway apunta a 127.0.0.1:puerto y los facts se quedan locales.'
  },
  en: {
   tab_llm:'LLM', llm_titulo:'LLM connection', llm_provider:'provider',
@@ -811,7 +823,9 @@ const I18N = {
   llm_model:'model', llm_model_type:'model type', guardar:'save',
   probar_conexion:'test connection', llm_guardado:'configuration saved',
   llm_key_configurada:'API key set', llm_key_falta:'API key not set', llm_modelo_activo:'active model',
-  help_llm:'Configure the agent LLM connection. The API key is saved encrypted (AES-256-GCM) and never shown again (only its last 4 characters).'
+  help_llm:'Configure the agent LLM connection. The API key is saved encrypted (AES-256-GCM) and never shown again (only its last 4 characters).',
+  llm_local_enabled:'Local LLM (inside the microVM)', llm_local_port:'port', llm_local_model:'local model',
+  llm_local_note:'Run the LLM inside the Firecracker microVM (see arquitectura/firecracker/LLM_LOCAL.md). The gateway points to 127.0.0.1:port and facts stay local.'
  },
  fr: {
   tab_llm:'LLM', llm_titulo:'Connexion du LLM', llm_provider:'fournisseur',
@@ -4433,9 +4447,20 @@ async function loadProviderModels(autoFree){
   } catch(e){ if(req === MODELS_REQ) $('llm_free_count').textContent = t('error'); }
 }
 
+function llmLocalToggle(){
+  const on = $('llm_local_enabled').checked;
+  $('llm_local_port').disabled = !on;
+  $('llm_local_model').disabled = !on;
+}
+
 async function loadLLMConfig(){
   try {
     const r = await fetch('/api/llm/config').then(x=>x.json());
+    const ll = r.local_llm || {};
+    $('llm_local_enabled').checked = !!ll.enabled;
+    $('llm_local_port').value = ll.port || 8080;
+    $('llm_local_model').value = ll.model || 'local';
+    llmLocalToggle();
     SAVED_LLM = { provider: r.provider || '', model: r.model || '', model_type: r.model_type || '', base_url: r.base_url || '' };
     const prov = r.provider || 'openrouter';
     const known = LLM_PRESETS.some(p => p.value === prov);
@@ -4478,6 +4503,11 @@ async function saveLLMConfig(){
     provider,
     base_url: $('llm_base_url').value.trim(),
     model,
+    local_llm: {
+      enabled: $('llm_local_enabled').checked,
+      port: parseInt($('llm_local_port').value || '8080', 10),
+      model: $('llm_local_model').value.trim() || 'local',
+    },
   };
   if(t) body.model_type = t;
   else if(model !== (SAVED_LLM.model || '') || provider !== (SAVED_LLM.provider || '')) body.model_type = null;
