@@ -1,83 +1,86 @@
-# LLM dentro de la microVM (boundary local)
+# LLM inside the microVM (local boundary)
 
-Correr el **modelo adentro** de la microVM Firecracker, en vez de llamar a un API externo. El LLM
-queda **contenido** en la frontera de hardware: su runtime vive en el guest (ring −1), igual que el
-agente, y `px-motor` sigue vigilando al sujeto en el host.
+Run the **model inside** the Firecracker microVM, instead of calling an external API. The LLM stays
+**contained** in the hardware boundary: its runtime lives in the guest (ring -1), like the agent,
+and `px-motor` keeps watching the subject on the host.
 
-> Esto **no** reemplaza la verificación del work product (`verificacion_trabajo.py`): el modelo
-> corre adentro (bien), pero su *salida* sigue necesitando gobernanza y verificación determinista.
+> This does **not** replace work-product verification (`verificacion_trabajo.py`): the model runs
+> inside (good), but its *output* still needs governance and deterministic verification.
 
-## Lo que ya está cableado
+## Already wired
 
-El gateway (`dashboard/llm_gateway.py`) ya distingue proveedor **local** vs **externo**:
+The gateway (`dashboard/llm_gateway.py`) already distinguishes a **local** vs **external** provider:
 
-- `_provider_is_local(base)` → `localhost`/`127.0.0.1`/`.local`/`.internal` es local.
-- `_scheme_allowed(url)` → permite `http` **solo** para loopback/local.
-- `_egress_facts(...)` → con proveedor local, **todos** los facts (incluido `secret`) se quedan
-  locales; con externo se filtran.
+- `_provider_is_local(base)` -> `localhost`/`127.0.0.1`/`.local`/`.internal` is local.
+- `_scheme_allowed(url)` -> allows `http` **only** for loopback/local.
+- `_egress_facts(...)` -> with a local provider, **all** facts (including `secret`) stay local; with
+  an external provider they are filtered.
 
-Se agregó un bloque de config de primera clase en `dashboard/llm_config.py`:
+A first-class config block was added to `dashboard/llm_config.py`:
 
 ```json
 "local_llm": { "enabled": false, "port": 8080, "model": "local" }
 ```
 
-Con `enabled=true`, `_conn()` resuelve al endpoint `http://127.0.0.1:<port>/v1` (proveedor `local`),
-sin API key, y fuerza el `model` local. El **circuito** del gateway queda: `cliente → gateway → 127.0.0.1:<port> → LLM en el guest`.
+With `enabled=true`, `_conn()` resolves to `http://127.0.0.1:<port>/v1` (provider `local`), without
+an API key, and forces the local `model`. The gateway **circuit** becomes:
+`client -> gateway -> 127.0.0.1:<port> -> LLM in the guest`.
 
-## Requisitos (honestos)
+## Requirements (honest)
 
-- **CPU-only.** Firecracker no hace passthrough de GPU; la inferencia es en CPU. Un modelo 7B Q4
-  necesita ~4–5 GB de RAM residente; sumá margen para KV-cache y el sistema.
-- La microVM por defecto es **512 MiB / 1 vCPU** (config.json) — para un LLM hay que subir
-  `mem_size_mib` y `vcpu_count` (p. ej. 8192 MiB / 4 vCPU para un 7B).
-- **rootfs grande** para los pesos (varios GB) o, mejor, montar los pesos como un **segundo block
-  device read-only** (`drives` en `config.json`) y no dentro del rootfs.
+- **CPU-only.** Firecracker does no GPU passthrough; inference runs on CPU. A 7B Q4 model needs
+  ~4-5 GB resident RAM; add headroom for KV-cache and the OS.
+- The default microVM is **512 MiB / 1 vCPU** (`config.json`) - for an LLM you must raise
+  `mem_size_mib` and `vcpu_count` (e.g. 8192 MiB / 4 vCPU for a 7B).
+- **Large rootfs** for the weights (several GB) or, better, mount the weights as a **second
+  read-only block device** (`drives` in `config.json`) rather than inside the rootfs.
 
-## Cómo construirlo
+## How to build it
 
-1. Extendé `build_rootfs_firecracker.sh` (o hacé un rootfs aparte) para instalar un runtime
-   OpenAI-compatible: `llama.cpp` (`server`) u `ollama`.
-2. Los pesos: agregá un segundo `drives` en `config.json` (read-only) apuntando a un `.ext4` con el
-   modelo, y montá-lo en el `guest_init`.
-3. `guest_init` levanta el server en un puerto TCP (p. ej. `8080` para llama.cpp, `11434` para
-   ollama) y lo deja corriendo.
+1. Extend `build_rootfs_firecracker.sh` (or build a separate rootfs) to install an OpenAI-compatible
+   runtime: `llama.cpp` (`server`) or `ollama`.
+2. Weights: add a second `drives` entry in `config.json` (read-only) pointing at an `.ext4` with the
+   model, and mount it in `guest_init`.
+3. `guest_init` starts the server on a TCP port (e.g. `8080` for llama.cpp, `11434` for ollama).
 
-## Transporte (cómo exponer el puerto al host)
+## Transport (how to expose the port to the host)
 
-### Opción A — tap device (estándar, cualquier server HTTP)
+### Option A - tap device (standard, any HTTP server)
 
-Agregá una `network-interfaces` a `config.json` con un `tap` (p. ej. `tap0`), levantá un bridge/NAT
-en el host, y el guest obtiene IP. El host llega al LLM por `http://<ip-guésped>:<port>` (o un
-port-forward a loopback).
+Add a `network-interfaces` to `config.json` with a `tap` (e.g. `tap0`), bring up a bridge/NAT on the
+host, and the guest gets an IP. The host reaches the LLM at `http://<guest-ip>:<port>` (or a
+port-forward to loopback).
 
-- **Tradeoff honesto:** reintroduce una ruta de red a la microVM (antes era `network-interfaces: []`).
-  Esa superficie es **solo** el puerto del LLM, y sigue cubierta por `px-motor` + el gateway local.
-  El claim "sin red" de la microVM se relaja a propósito.
+- **Honest tradeoff:** this reintroduces a network path to the microVM (previously
+  `network-interfaces: []`). That surface is **only** the LLM port, still covered by `px-motor` +
+  the local gateway. The "no network" claim is relaxed on purpose.
 
-### Opción B — vsock (mantiene la microVM sin red)
+### Option B - vsock (keeps the microVM network-free)
 
-Firecracker ya usa vsock para el agente. Si el runtime LLM habla vsock nativamente (raro) o ponés un
-**shim vsock→TCP** en el guest (escucha en vsock y reenvía al server TCP local), el host lo alcanza
-por un forwarder vsock→loopback. Más trabajo, pero conserva "sin red".
+Firecracker already uses vsock for the agent. If the LLM runtime speaks vsock natively (rare), or you
+add a **vsock->TCP shim** in the guest (listens on vsock and forwards to the local TCP server), the
+host reaches it via a vsock->loopback forwarder. More work, but keeps "no network".
 
-## Configurar desde el dashboard
+## Configure from the dashboard
 
-Vía `llm_config.save()` (que ya persiste el bloque):
+Via `llm_config.save()` (which already persists the block):
 
 ```python
-llm_config.save({"local_llm": {"enabled": True, "port": 8080, "model": "mi-modelo-7b"}})
+llm_config.save({"local_llm": {"enabled": True, "port": 8080, "model": "my-model-7b"}})
 ```
 
-O equivalentemente con `provider`/`base_url`/`model` en el panel (el gateway lo trata igual si el
-host es loopback). Con `enabled`, el gateway **no pide API key** y fuerza el `model` local.
+Or equivalently via `provider`/`base_url`/`model` in the panel (the gateway treats it the same if the
+host is loopback). With `enabled`, the gateway **requires no API key** and forces the local `model`.
 
-## Límites honestos
+The dashboard LLM tab has a "**Local LLM (inside the microVM)**" block (enable checkbox + port +
+model).
 
-- **CPU-only** → latencia y throughput acotados por la máquina; no es un reemplazo de GPU.
-- El modelo sigue siendo **un binario que podés verificar** con `verificacion_trabajo.py` (la salida
-  no se auto-certifica).
-- "LLM adentro" **reduce** la dependencia del vendor externo, pero **no** elimina el problema de
-  gobernanza de la salida (el modelo puede alucinar o desviarse igual).
+## Honest limits
 
-Ver también: `README.md` (boundary), `../scripts/verificacion_trabajo.md` (verificación del work product).
+- **CPU-only** -> latency/throughput bounded by the machine; not a GPU replacement.
+- The model is still **a binary you can verify** with `verificacion_trabajo.py` (output does not
+  self-certify).
+- "LLM inside" **reduces** dependence on the external vendor, but does **not** eliminate the output
+  governance problem (the model can still hallucinate or drift).
+
+See also: `README.md` (boundary), `../scripts/verificacion_trabajo.md` (work-product verification).

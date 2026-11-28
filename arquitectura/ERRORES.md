@@ -1,59 +1,57 @@
-# ERRORES.md — Requisitos y troubleshooting HCMA
+# ERRORES.md — HCMA requirements and troubleshooting
 
-Guía de referencia para el instalador de punta a punta (`sudo sh arquitectura/instalar.sh`).
-Si algo falla, buscá el síntoma acá. Cada entrada tiene **síntoma → causa → solución**.
+Reference guide for the end-to-end installer (`sudo sh arquitectura/instalar.sh`). If something
+fails, look up the symptom here. Each entry has **symptom -> cause -> solution**.
 
-Diagnóstico rápido:
+Quick diagnosis:
 
 ```bash
-sudo sh arquitectura/montaje/verificar.sh               # salud completa
-journalctl -u hcma-monitor     -n 50 --no-pager          # monitor + socket vsock
+sudo sh arquitectura/montaje/verificar.sh               # full health check
+journalctl -u hcma-monitor     -n 50 --no-pager          # monitor + vsock socket
 journalctl -u hcma-firecracker -n 50 --no-pager          # microVM (boot + vsock)
-journalctl -u hcma-px-motor    -n 50 --no-pager          # detector eBPF
+journalctl -u hcma-px-motor    -n 50 --no-pager          # eBPF detector
 journalctl -u hcma-dashboard   -n 50 --no-pager          # dashboard / TLS
 ```
 
 ---
 
-## 1. Requisitos (lo que valida `instalar.sh`)
+## 1. Requirements (what `instalar.sh` validates)
 
-El preflight de `instalar.sh` comprueba e instala automáticamente (en distros soportadas)
-estas categorías:
+The `instalar.sh` preflight checks and auto-installs (on supported distros) these categories:
 
-| Categoría | Qué chequea | Paquete(s) |
+| Category | What it checks | Package(s) |
 |---|---|---|
-| Runtime (servicios) | `python3 git go clang bpftool ss useradd groupadd usermod nft curl systemctl` | por distro (`distro.sh`) |
-| BTF del kernel | `/sys/kernel/btf/vmlinux` | kernel con `CONFIG_DEBUG_INFO_BTF=y` (no es paquete) |
-| Build kernel huésped (`vmlinux`) | `gcc make bc bison flex tar xz` + headers `libelf` | `BUILD_PKGS` / `LIBELF_PKG` |
-| Build rootfs (`rootfs.ext4`) | `mmdebstrap mkfs.ext4` (solo Debian/Ubuntu) | `ROOTFS_PKGS` |
-| KVM / vsock | `/dev/kvm`, `/dev/vhost-vsock`, flag `vmx`/`svm` | host/BIOS (no es paquete) |
-| Artefactos microVM | `vmlinux` + `rootfs.ext4` (repo o `/var/lib/hcma-firecracker`) | `build_vmlinux.sh` / `build_rootfs_firecracker.sh` |
+| Runtime (services) | `python3 git go clang bpftool ss useradd groupadd usermod nft curl systemctl` | per distro (`distro.sh`) |
+| Kernel BTF | `/sys/kernel/btf/vmlinux` | kernel with `CONFIG_DEBUG_INFO_BTF=y` (not a package) |
+| Guest kernel build (`vmlinux`) | `gcc make bc bison flex tar xz` + `libelf` headers | `BUILD_PKGS` / `LIBELF_PKG` |
+| Rootfs build (`rootfs.ext4`) | `mmdebstrap mkfs.ext4` (apt distros only) | `ROOTFS_PKGS` |
+| KVM / vsock | `/dev/kvm`, `/dev/vhost-vsock`, `vmx`/`svm` flag | host/BIOS (not a package) |
+| microVM artifacts | `vmlinux` + `rootfs.ext4` (repo or `/var/lib/hcma-firecracker`) | `build_vmlinux.sh` / `build_rootfs_firecracker.sh` |
 
-Si una distro no está en `distro.sh`, el instalador **no** auto-instala nada y lo dice:
-instalá los paquetes a mano (los nombres están en `distro.sh`).
+If a distro is not in `distro.sh`, the installer does **not** auto-install anything and says so:
+install the packages by hand (names are in `distro.sh`).
 
 ---
 
-## 2. Entorno / paquetes
+## 2. Environment / packages
 
-### `E: El repositorio «https://…» no está firmado` / `Missing key … needed to verify signature`
-- **Causa**: un repo apt de terceros (Fortinet, etc.) sin firma quedó en
-  `/etc/apt/sources.list.d/` y bloquea `apt-get update`.
-- **Solución**: desactivá o remové ese repo y volvé a actualizar.
+### `E: The repository «https://…» is not signed` / `Missing key … needed to verify signature`
+- **Cause**: a third-party apt repo (Fortinet, etc.) without a signature is in
+  `/etc/apt/sources.list.d/` and blocks `apt-get update`.
+- **Solution**: disable or remove that repo and update again.
   ```bash
   ls /etc/apt/sources.list.d/
-  sudo rm /etc/apt/sources.list.d/forticlient*.list      # o el repo que corresponda
+  sudo rm /etc/apt/sources.list.d/forticlient*.list      # or the offending repo
   sudo apt-get update
   ```
 
-### `distro no soportada` (el instalador no auto-instala paquetes)
-- **Causa**: la distro no está mapeada en `distro.sh`.
-- **Solución**: instalá a mano los paquetes de `distro.sh` para tu familia
-  (mirá la columna correspondiente) y volvé a correr el instalador.
+### `unsupported distro` (the installer does not auto-install packages)
+- **Cause**: the distro is not mapped in `distro.sh`.
+- **Solution**: install the packages from `distro.sh` for your family by hand and re-run.
 
-### Firecracker: `curl: (23) … ERROR on write` / `install: no se puede efectuar 'stat'`
-- **Causa**: descarga parcial del binario de GitHub (o un `.tgz` viejo en `/tmp`).
-- **Solución**: `deploy.sh` ya descarga de forma atómica con reintentos. Si insistís a mano:
+### Firecracker: `curl: (23) … ERROR on write` / `install: cannot stat …`
+- **Cause**: partial download of the GitHub binary (or a stale `.tgz` in `/tmp`).
+- **Solution**: `deploy.sh` already downloads atomically with retries. Manually:
   ```bash
   sudo rm -f /tmp/firecracker-*.tgz /tmp/fc-extract-* -r
   sudo sh arquitectura/firecracker/deploy.sh
@@ -61,153 +59,150 @@ instalá los paquetes a mano (los nombres están en `distro.sh`).
 
 ---
 
-## 3. KVM / Firecracker (boundary de hardware)
+## 3. KVM / Firecracker (hardware boundary)
 
-### `/dev/kvm ausente` o `sin vmx/svm en /proc/cpuinfo`
-- **Causa**: virtualización por hardware deshabilitada en BIOS/UEFI, o (en un host de VM)
-  sin *nested virt*.
-- **Solución**: habilitá VT-x/AMD-V en BIOS. Para correr Firecracker *dentro* de una VM,
-  activá nested virt:
+### `/dev/kvm missing` or `no vmx/svm in /proc/cpuinfo`
+- **Cause**: hardware virtualization disabled in BIOS/UEFI, or (on a VM host) no *nested virt*.
+- **Solution**: enable VT-x/AMD-V in BIOS. To run Firecracker *inside* a VM, enable nested virt:
   ```bash
-  # host de QEMU: -cpu host  (run_vm_test.sh ya lo usa)
-  # verificar dentro de la VM: grep -m1 -oE 'vmx|svm' /proc/cpuinfo
+  # QEMU host: -cpu host  (run_vm_test.sh already uses it)
+  # verify inside the VM: grep -m1 -oE 'vmx|svm' /proc/cpuinfo
   ```
 
-### `/dev/vhost-vsock ausente`
-- **Causa**: módulo `vhost_vsock` no cargado / no disponible.
-- **Solución**:
+### `/dev/vhost-vsock missing`
+- **Cause**: the `vhost_vsock` module is not loaded / not available.
+- **Solution**:
   ```bash
   sudo modprobe vhost_vsock
   ls -l /dev/vhost-vsock
   ```
 
 ### Firecracker: `The kernel file cannot be opened: No such file or directory (os error 2)`
-- **Causa**: falta el kernel huésped en `/var/lib/hcma-firecracker/vmlinux`.
-- **Solución**: generá o pasá el `vmlinux`:
+- **Cause**: missing guest kernel at `/var/lib/hcma-firecracker/vmlinux`.
+- **Solution**: build or pass the `vmlinux`:
   ```bash
   cd arquitectura/firecracker
   sudo sh build_vmlinux.sh                                   # ~10-15 min
   sudo sh deploy.sh "$PWD/vmlinux" "$PWD/rootfs.ext4"
-  # o, al instalar:
-  sudo HCMA_VMLINUX=/ruta/vmlinux HCMA_ROOTFS=/ruta/rootfs.ext4 sh arquitectura/instalar.sh
+  # or, at install time:
+  sudo HCMA_VMLINUX=/path/vmlinux HCMA_ROOTFS=/path/rootfs.ext4 sh arquitectura/instalar.sh
   ```
 
 ### Kernel panic: `VFS: Unable to mount root fs on unknown-block(0,0)`
-- **Causa**: el kernel huésped no trae `virtio-blk` + `ext4` **built-in** (Firecracker expone
-  los dispositivos por **virtio-MMIO**, no PCI).
-- **Solución**: `build_vmlinux.sh` ya habilita `VIRTIO_MMIO`, `VIRTIO_BLK`, `EXT4_FS`,
-  `VSOCKETS`, `SERIAL_8250`. Si compilás a mano, asegurate de tener esos `=y` (no módulos).
+- **Cause**: the guest kernel does not have `virtio-blk` + `ext4` **built-in** (Firecracker exposes
+  devices via **virtio-MMIO**, not PCI).
+- **Solution**: `build_vmlinux.sh` already enables `VIRTIO_MMIO`, `VIRTIO_BLK`, `EXT4_FS`,
+  `VSOCKETS`, `SERIAL_8250`. If compiling by hand, make sure those are `=y` (not modules).
 
 ### Firecracker vsock: `Read-only file system (os error 30)`
-- **Causa**: `ProtectSystem=strict` deja `/run/hcma` read-only y Firecracker no puede crear el
-  socket del vsock.
-- **Solución**: la unidad ya tiene `ReadWritePaths=/run/hcma`. Verificá:
+- **Cause**: `ProtectSystem=strict` leaves `/run/hcma` read-only and Firecracker can't create the
+  vsock socket.
+- **Solution**: the unit already has `ReadWritePaths=/run/hcma`. Verify:
   ```bash
   grep -n 'ReadWritePaths' arquitectura/firecracker/hcma-firecracker.service
   sudo systemctl daemon-reload && sudo systemctl restart hcma-firecracker
   ```
 
 ### Firecracker vsock: `Permission denied (os error 13)`
-- **Causa**: `/run/hcma` no es transitable/escribible por el usuario no-root
-  `hcma-firecracker` (grupo `hcma-vsock`).
-- **Solución**: el monitor crea `/run/hcma` (`RuntimeDirectory=hcma`, `0711`) y chownea el
-  socket `vsock.sock_5000` a `hcma-vsock` (`0660`). Asegurate de:
+- **Cause**: `/run/hcma` is not traversable/writable by the non-root user `hcma-firecracker`
+  (group `hcma-vsock`).
+- **Solution**: the monitor creates `/run/hcma` (`RuntimeDirectory=hcma`, `0711`) and chowns the
+  socket `vsock.sock_5000` to `hcma-vsock` (`0660`). Check:
   ```bash
   ls -ld /run/hcma                        # drwx--x--x (0711)
   ls -l /run/hcma/vsock.sock_5000         # srw-rw---- hcma-monitor hcma-vsock
-  id hcma-firecracker                     # ... grupos: kvm, hcma-vsock
+  id hcma-firecracker                     # ... groups: kvm, hcma-vsock
   ```
 
 ---
 
-## 4. Compilación del kernel huésped (`build_vmlinux.sh`)
+## 4. Guest kernel build (`build_vmlinux.sh`)
 
 ### `error: cannot use keyword 'false' as enumeration constant` / `'bool' cannot be defined via 'typedef'`
-- **Causa**: **gcc ≥ 15 usa C23 por defecto**; `bool`/`false`/`true` pasan a ser keywords y
-  rompen `realmode` y el EFI stub (que sobreescriben `KBUILD_CFLAGS` sin `-std=gnu11`).
-- **Solución**: `build_vmlinux.sh` ya fuerza `-std=gnu11` en `arch/x86/Makefile` (realmode) y
-  `drivers/firmware/efi/libstub/Makefile`. Si compilás a mano:
+- **Cause**: **gcc >= 15 defaults to C23**; `bool`/`false`/`true` become keywords and break
+  `realmode` and the EFI stub (which override `KBUILD_CFLAGS` without `-std=gnu11`).
+- **Solution**: `build_vmlinux.sh` already forces `-std=gnu11` in `arch/x86/Makefile` (realmode) and
+  `drivers/firmware/efi/libstub/Makefile`. By hand:
   ```bash
   sed -i -E 's/^(REALMODE_CFLAGS[[:space:]]*:= )/\1-std=gnu11 /' arch/x86/Makefile
   sed -i 's/-D__DISABLE_EXPORTS$/-D__DISABLE_EXPORTS -std=gnu11/' drivers/firmware/efi/libstub/Makefile
   ```
 
-### `fatal error: openssl/bio.h: No existe el fichero o el directorio` (en `certs/extract-cert.c`)
-- **Causa**: el subsistema de `certs` (keyrings) exige headers OpenSSL.
-- **Solución**: `build_vmlinux.sh` deshabilita `SYSTEM_TRUSTED_KEYRING`,
-  `SECONDARY_TRUSTED_KEYRING` y `SYSTEM_REVOCATION_LIST` (no los necesitás para la microVM).
-  Alternativa: `sudo apt-get install -y libssl-dev`.
+### `fatal error: openssl/bio.h: No such file or directory` (in `certs/extract-cert.c`)
+- **Cause**: the `certs` subsystem (keyrings) requires OpenSSL headers.
+- **Solution**: `build_vmlinux.sh` disables `SYSTEM_TRUSTED_KEYRING`, `SECONDARY_TRUSTED_KEYRING`
+  and `SYSTEM_REVOCATION_LIST` (not needed for the microVM). Alternative:
+  `sudo apt-get install -y libssl-dev`.
 
-### `make: *** [arch/x86] Error 2` sin mensaje claro
-- **Causa**: falta `bc`/`bison`/`flex`/`libelf-dev` (el build de kernel los necesita).
-- **Solución**: `sudo apt-get install -y gcc make bc bison flex libelf-dev xz-utils` (o el
-  equivalente de tu distro; ver `distro.sh` → `BUILD_PKGS`).
+### `make: *** [arch/x86] Error 2` with no clear message
+- **Cause**: missing `bc`/`bison`/`flex`/`libelf-dev` (the kernel build needs them).
+- **Solution**: `sudo apt-get install -y gcc make bc bison flex libelf-dev xz-utils` (or the distro
+  equivalent; see `distro.sh` -> `BUILD_PKGS`).
 
 ---
 
-## 5. px-motor (detector eBPF)
+## 5. px-motor (eBPF detector)
 
 ### `Unknown key 'StartLimitIntervalSec' in section [Service]`
-- **Causa**: en systemd moderno, `StartLimitIntervalSec`/`StartLimitBurst` van en `[Unit]`, no
-  en `[Service]`.
-- **Solución**: ya está corregido en `arquitectura/px-motor/hcma-px-motor.service` (van en
-  `[Unit]`). Reinstalá la unidad y recargá:
+- **Cause**: on modern systemd, `StartLimitIntervalSec`/`StartLimitBurst` go in `[Unit]`, not
+  `[Service]`.
+- **Solution**: already fixed in `arquitectura/px-motor/hcma-px-motor.service` (they are in `[Unit]`).
+  Reinstall the unit and reload:
   ```bash
   sudo systemctl daemon-reload
   sudo systemctl restart hcma-px-motor
   ```
 
-### `bpftool btf dump … No such file or directory` (sin BTF)
-- **Causa**: el kernel en ejecución no tiene `CONFIG_DEBUG_INFO_BTF=y`, así que no hay
-  `/sys/kernel/btf/vmlinux` para generar `vmlinux.h`.
-- **Solución**: usá un kernel con BTF (los kernels stock de Ubuntu/Debian lo traen) o habilitá
-  BTF y reiniciá. Verificá:
+### `bpftool btf dump … No such file or directory` (no BTF)
+- **Cause**: the running kernel lacks `CONFIG_DEBUG_INFO_BTF=y`, so there is no
+  `/sys/kernel/btf/vmlinux` to generate `vmlinux.h`.
+- **Solution**: use a kernel with BTF (stock Ubuntu/Debian kernels have it) or enable BTF and reboot.
   ```bash
   ls -l /sys/kernel/btf/vmlinux
   ```
 
-### Fallo al compilar las sondas `.bpf.c`
-- **Causa**: `clang` sin target `bpf`, o `vmlinux.h` ausente/corrupto.
-- **Solución**: `sudo apt-get install -y clang bpftool linux-headers-amd64` (o equivalente) y
-  asegurate de tener BTF; luego re-ejecutá `px-motor/deploy.sh`.
+### Failure compiling the `.bpf.c` probes
+- **Cause**: `clang` without the `bpf` target, or a missing/corrupt `vmlinux.h`.
+- **Solution**: `sudo apt-get install -y clang bpftool linux-headers-amd64` (or equivalent) and make
+  sure you have BTF; then re-run `px-motor/deploy.sh`.
 
 ---
 
 ## 6. Rootfs (`build_rootfs_firecracker.sh`)
 
-### `falta mmdebstrap`
-- **Causa**: `mmdebstrap` solo existe en distros basadas en apt (Debian/Ubuntu y derivadas).
-- **Solución**: en una distro apt: `sudo apt-get install -y mmdebstrap e2fsprogs`. En otras
-  distros el build de rootfs no está soportado; usá un `rootfs.ext4` precompilado y pasalo con
-  `HCMA_ROOTFS=/ruta/rootfs.ext4`.
+### `mmdebstrap missing`
+- **Cause**: `mmdebstrap` only exists on apt-based distros (Debian/Ubuntu and derivatives).
+- **Solution**: on an apt distro: `sudo apt-get install -y mmdebstrap e2fsprogs`. On other distros
+  the rootfs build is not supported; use a prebuilt `rootfs.ext4` and pass it with
+  `HCMA_ROOTFS=/path/rootfs.ext4`.
 
 ---
 
-## 7. Dashboard / red
+## 7. Dashboard / network
 
-### `curl: (7) Failed to connect … port 8787` / dashboard no responde
-- **Causa**: el puerto es **dinámico** (si 8787 está ocupado, se usa el siguiente) y queda en
+### `curl: (7) Failed to connect … port 8787` / dashboard not responding
+- **Cause**: the port is **dynamic** (if 8787 is taken, the next one is used) and stored in
   `/etc/hcma/dash.env`.
-- **Solución**:
+- **Solution**:
   ```bash
-  . /etc/hcma/dash.env; echo "puerto: $HCMA_DASH_PORT"
+  . /etc/hcma/dash.env; echo "port: $HCMA_DASH_PORT"
   sudo systemctl status hcma-dashboard --no-pager
   curl -skS https://localhost:$HCMA_DASH_PORT/api/components
   ```
 
-### El health check marca `gVisor legacy no instalado`
-- **Causa**: tras el cutover a Firecracker, `runsc` ya no es la frontera (es legacy).
-- **Solución**: **esperable**; el check de gVisor es informativo. La frontera vigente es
-  Firecracker (`firecracker instalado` + `vmlinux` + `rootfs`).
+### The health check reports `gVisor legacy not installed`
+- **Cause**: after the Firecracker cutover, `runsc` is no longer the boundary (it is legacy).
+- **Solution**: **expected**; the gVisor check is informational. The active boundary is Firecracker
+  (`firecracker installed` + `vmlinux` + `rootfs`).
 
 ---
 
-## 8. Monitor / socket vsock
+## 8. Monitor / vsock socket
 
 ### `MONITOR MUERE: no se pudo crear los sockets`
-- **Causa**: `/run/hcma` no se puede crear/escribir, o falta el grupo `hcma-vsock`/`hcma-audit`.
-- **Solución**: reinstalá el core (`sudo sh arquitectura/montaje/montar.sh`) para recrear los
-  grupos, y verificá la unidad del monitor:
+- **Cause**: `/run/hcma` cannot be created/written, or the `hcma-vsock`/`hcma-audit` group is missing.
+- **Solution**: reinstall the core (`sudo sh arquitectura/montaje/montar.sh`) to recreate the groups,
+  and check the monitor unit:
   ```bash
   grep -E 'RuntimeDirectory|SupplementaryGroups' arquitectura/scripts/hcma-monitor.service
   sudo systemctl restart hcma-monitor
@@ -215,17 +210,17 @@ instalá los paquetes a mano (los nombres están en `distro.sh`).
 
 ---
 
-## 10. El agente no hace lo que dice (desviación de gobernanza)
+## 9. CORTE ceremony (checkpoint + store) — manual, by design
 
-Si el LLM **reporta una cosa y hace otra** (inventa una regla, borra un feature sin medir, o
-escribe código distinto al acordado), eso NO es una alucinación de salida — es una **desviación de
-gobernanza**. La respuesta no está en el sandbox ni en la perplejidad, sino en: no confiar en el
-auto-reporte y verificar el *work product* con un verificador determinista, y exigir autorización
-humana para las decisiones con efecto. Ver `arquitectura/scripts/verificacion_trabajo.md`.
+The real store (`/var/lib/hcma-monitor/store/memoria.db`) is installed via a **one-time human
+ceremony**, not safely automatable. If the health check reports `store del monitor presente (falta
+ceremonia de cutover?)`, follow `arquitectura/montaje/README.md` -> "Manual step: state-cutover
+ceremony".
 
-## 9. Ceremonia de CORTE (checkpoint + store) — manual, por diseño
+## 10. The agent does not do what it says (governance drift)
 
-El store real (`/var/lib/hcma-monitor/store/memoria.db`) se instala con una **ceremonia humana**
-de una sola vez, no automatizable de forma segura. Si el health check marca
-`store del monitor presente (¿falta ceremonia de cutover?)`, seguí `arquitectura/montaje/README.md`
-→ “Paso manual: ceremonia de corte de estado”.
+If the LLM **reports one thing and does another** (invents a rule, drops a feature without measuring,
+or writes code different from what was agreed), that is NOT an output hallucination - it is a
+**governance drift**. The answer is not the sandbox nor perplexity, but: do not trust the
+self-report, verify the *work product* with a deterministic verifier, and require human
+authorization for effectful decisions. See `arquitectura/scripts/verificacion_trabajo.md`.

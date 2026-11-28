@@ -1,51 +1,50 @@
-# Verificación determinista del work product (no confiar en el auto-reporte)
+# Deterministic verification of the work product (don't trust the self-report)
 
-Cierra la brecha **"el agente dice que hizo X, pero en realidad hizo Y"**. Dos casos reales que
-lo motivan:
+Closes the gap **"the agent says it did X, but it actually did Y"**. Two real cases that motivate it:
 
-- **KeeperAI**: un agente inventó una regla, la "lavó" a través de sus sub-agentes, la disfrazó
-  de *bug fix* y borró features **sin medir antes** si mejoraban o no.
-- **Astropulse / Claude Fable 5**: el agente escribió el doc correcto pero programó otra cosa
-  (congeló el condicionamiento, recomputó embeddings por step, multiplicó pasos con gradient
-  accumulation), y el vendor degradaba en silencio.
+- **KeeperAI**: an agent invented a rule, "laundered" it through its sub-agents, disguised it as a
+  *bug fix*, and dropped features **without measuring first** whether they helped or not.
+- **Astropulse / Claude Fable 5**: the agent wrote the correct doc but programmed something else
+  (froze conditioning, recomputed embeddings per step, multiplied steps with gradient accumulation),
+  and the vendor silently degraded performance.
 
-Ambos son el mismo fallo: **el auto-reporte del LLM no es evidencia.**
+Both are the same failure: **the LLM's self-report is not evidence.**
 
-## Principio
+## Principle
 
-Para lo consecuente, no se confía en lo que el agente *dice*:
+For anything consequential, do not trust what the agent *says*:
 
-1. El **work product** (código/feature) es un `entregable` deóntico que **solo cierra** con un
-   verificador **determinista (no-LLM)** contra el **artefacto real**, no contra la afirmación.
-2. **"Borrar un feature" / "cambiar una regla"** son *acciones con efecto*: requieren autorización
-   humana (`gobernanza_accion.py`) y, además, **medir antes de borrar**.
+1. The **work product** (code/feature) is a deontic `deliverable` that **only closes** with a
+   **deterministic (non-LLM) verifier** against the **real artifact**, not against the claim.
+2. **"Drop a feature" / "change a rule"** are *effectful actions*: they require human authorization
+   (`gobernanza_accion.py`) and, in addition, **measuring before dropping**.
 
-## Primitivos que ya existían (y que esto reutiliza)
+## Primitives that already existed (and are reused)
 
-| Módulo | Qué aporta |
+| Module | What it provides |
 |---|---|
-| `deontica.py` | "lo pendiente no se auto-cierra": el entregable solo cierra por predicado mecánico. |
-| `autoratificacion.py` | lo *deducible* se auto-verifica con verificador **no-LLM**; lo contingente pide fuente o frena. |
-| `gobernanza_accion.py` | default-deny: ninguna acción con efecto sin `autorizacion` humana firmada (single-use). |
+| `deontica.py` | "the pending never self-closes": the deliverable closes only via a mechanical predicate. |
+| `autoratificacion.py` | *deducible* facts are auto-verified by a non-LLM verifier; *contingent* facts require a source or STOP. |
+| `gobernanza_accion.py` | default-deny: no effectful action without a human-signed (single-use) `autorizacion`. |
 
-## Qué agrega `verificacion_trabajo.py`
+## What `verificacion_trabajo.py` adds
 
-- **Checks deterministas** (patrón Astropulse), todos funciones puras `(artefacto, spec) -> (ok, motivo)`:
-  - `formula_coincide` — el hash de la fórmula implementada matchea la spec.
-  - `embeddings_cacheados` — no recomputa embeddings por step.
-  - `condicionamiento_evoluciona` — no congela el text conditioning.
-  - `sin_pasos_extra` — no multiplica pasos con gradient accumulation contra la spec.
-- `registrar_work_product(...)` + `verificar_y_cerrar(m, id, artefacto)` — cierra solo si el
-  **artefacto real** pasa todos los checks.
-- `invariante_medir_antes_de_borrar(m, feature_id)` — predicado "medir antes de borrar": solo cierra
-  si existe `fuente:medicion:<feature>` verificada que demuestre `perjudica=True`.
+- **Deterministic checks** (Astropulse pattern), all pure functions `(artifact, spec) -> (ok, reason)`:
+  - `formula_coincide` - the implemented formula hash matches the spec.
+  - `embeddings_cacheados` - does not recompute embeddings per step.
+  - `condicionamiento_evoluciona` - does not freeze text conditioning.
+  - `sin_pasos_extra` - does not multiply steps with gradient accumulation against the spec.
+- `registrar_work_product(...)` + `verificar_y_cerrar(m, id, artifact)` - closes only if the
+  **real artifact** passes all checks.
+- `invariante_medir_antes_de_borrar(m, feature_id)` - "measure before drop" predicate: closes only
+  if a verified `fuente:medicion:<feature>` exists showing `perjudica=True`.
 
-## Uso
+## Usage
 
 ```python
 import verificacion_trabajo as VT
 
-# spec acordada + requisito (la spec debe existir con autoridad)
+# agreed spec + requirement (the spec must exist with authority)
 m.write("cota:trainer:spec", {"formula_hash": "abc123"}, fuente="tabla", verified=True)
 VT.registrar_work_product(m, "trainer_v1", "trainer",
                           {"formula_hash": "abc123", "pasos_por_step": 1},
@@ -53,25 +52,25 @@ VT.registrar_work_product(m, "trainer_v1", "trainer",
                            "condicionamiento_evoluciona", "sin_pasos_extra"],
                           requiere=[("cota:trainer:spec", "conforme")])
 
-# el HARNESS (no el agente) extrae el artefacto real del código/config y verifica:
-estado, detalle = VT.verificar_y_cerrar(m, "trainer_v1", artefacto_real)
+# the HARNESS (not the agent) extracts the real artifact from the code/config and verifies:
+estado, detalle = VT.verificar_y_cerrar(m, "trainer_v1", artifact_real)
 ```
 
-`artefacto_real` lo construye el **harness/monitor** leyendo el archivo/config real (hash de la
-fórmula, flags, nº de pasos). El agente **no** puede cerrar su propio entregable.
+`artifact_real` is built by the **harness/monitor** reading the real file/config (formula hash,
+flags, step count). The agent **cannot** close its own deliverable.
 
-## Límites honestos
+## Honest limits
 
-- Cubre **solo lo que pasa por HCMA**; el LLM externo y sus sub-agentes internos están **fuera de
-  frontera** (no podés ver su CoT ni su rerouting interno).
-- El verificador es **tan bueno como las invariantes que le escribas**: detecta las desviaciones
-  *especificadas*, no un sabotaje sutil que no anticipaste (eso requiere revisión humana).
-- La **autorización** de acciones la da `gobernanza_accion.py`; acá se agrega la **verificación del
-  resultado** del trabajo. Son complementarias: autorizar ≠ verificar.
+- Covers **only what goes through HCMA**; the external LLM and its internal sub-agents are **outside
+  the boundary** (you can't see its CoT or internal rerouting).
+- The verifier is **only as good as the invariants you write**: it catches *specified* deviations,
+  not subtle unanticipated sabotage (that requires human review).
+- Action **authorization** comes from `gobernanza_accion.py`; here we add **verification of the
+  result**. They are complementary: authorizing != verifying.
 
 ## Tests
 
 ```bash
 python3 test_verificacion_trabajo.py    # 6 PASS / 0 FAIL
-python3 verificacion_trabajo.py         # demo de ambos casos
+python3 verificacion_trabajo.py         # demo of both cases
 ```

@@ -1,69 +1,69 @@
-# Perplejidad en un sistema con poda (árbol de verificación / decodificador restringido)
+# Perplexity on a pruned system (verification tree / constrained decoder)
 
-Cuando el harness **poda** caminos (un árbol de decisiones/verificación o un decodificador
-restringido) para eliminar alucinaciones, el espacio de tokens válidos se achica en cada paso.
-Según **dónde** se tomen los logits, se mide una distribución distinta.
+When the harness **prunes** paths (a decision/verification tree or a constrained decoder) to remove
+hallucinations, the space of valid tokens shrinks at each step. Depending on **where** the logits
+are taken, you are measuring a different distribution.
 
-## 1. Las dos perplejidades
+## 1. The two perplexities
 
-### A. Perplejidad intrínseca del modelo base (sin máscara)
-Se toman los logits crudos del modelo **antes** de aplicar poda/verificación.
+### A. Intrinsic base-model perplexity (no mask)
+Take the raw logits **before** applying pruning/verification.
 
-- **Qué mide:** qué tan bien el modelo base predice la secuencia objetivo por sí solo.
-- **Limitación:** no refleja la arquitectura de poda. Si el base duda entre un dato real y una
-  alucinación, su PPL será alta aunque el árbol luego descarte la rama falsa.
+- **What it measures**: how well the base model predicts the target sequence on its own.
+- **Limitation**: it does not reflect the pruning architecture. If the base model hesitates between
+  a real fact and a hallucination, its PPL will be high even if the tree later discards the false
+  branch.
 
-### B. Perplejidad post-poda (renormalizada)
-Si el sistema reduce los tokens/caminos permitidos en el paso `i` de `V` a `V_válido(i) ⊂ V`,
-la perplejidad válida requiere **renormalizar** sobre los sobrevivientes:
+### B. Post-pruning perplexity (renormalized)
+If the system reduces the allowed tokens/paths at step `i` from `V` to `V_valid(i)`, the valid
+perplexity requires **renormalizing** over the survivors:
 
 ```
-Z_i = Σ_{v ∈ V_válido(i)} P_base(v)
-P_podado(t_i) = P_base(t_i) / Z_i
-PPL_podado = exp( - (1/N) Σ_i log P_podado(t_i) )
+Z_i = sum_{v in V_valid(i)} P_base(v)
+P_pruned(t_i) = P_base(t_i) / Z_i
+PPL_pruned = exp( - (1/N) * sum_i log P_pruned(t_i) )
 ```
 
-- **Qué mide:** la incertidumbre real del sistema completo tras descartar ramas inválidas.
-- **Condición crítica (ground truth):** el token real debe sobrevivir a la poda. Si el mecanismo
-  elimina por error el camino verdadero, `P_podado(t_i)=0` → `-log(0)=∞` → `PPL=∞`. Esto convierte
-  la métrica en una **prueba de fuego**: detecta al instante si la poda es demasiado agresiva.
+- **What it measures**: the real uncertainty of the full system after discarding invalid branches.
+- **Critical condition (ground truth)**: the real token must survive pruning. If the mechanism
+  wrongly removes the true path, `P_pruned(t_i)=0` -> `-log(0)=inf` -> `PPL=inf`. This turns the
+  metric into a **fire test**: it immediately detects over-aggressive pruning.
 
-## 2. Poda a nivel de rama/secuencia (no de token)
+## 2. Pruning at the branch/sequence level (not token)
 
-Si el harness verifica **nodos completos** (estados o hashes de bloques) en vez de enmascarar
-token a token:
+If the harness verifies **whole nodes** (states or block hashes) instead of masking token by token:
 
-- **Branch/node perplexity:** se suman las log-probabilidades de los tokens de cada nodo válido y
-  se normaliza solo sobre las ramas que pasaron la verificación.
-- **Efecto `PPL = 1`:** si en un punto determinista la poda deja una única rama válida
-  (`|V_válido| = 1`), la probabilidad renormalizada de ese camino es `1.0` y la perplejidad en ese
-  paso es exactamente `1.0` (incertidumbre cero).
+- **Branch/node perplexity:** sum the log-probabilities of the tokens of each valid node and
+  normalize only over the branches that passed verification.
+- **The `PPL = 1` effect:** if at a deterministic point pruning leaves a single valid branch
+  (`|V_valid| = 1`), the renormalized probability of that path is `1.0` and the perplexity at that
+  step is exactly `1.0` (zero uncertainty).
 
-## 3. Métricas complementarias (la PPL sola engaña)
+## 3. Complementary metrics (PPL alone is misleading)
 
-Un sistema que bloquea el 99% del vocabulario tendrá siempre PPL ≈ 1 aunque pierda flexibilidad.
-Acompañar con:
+A system that blocks 99% of the vocabulary will always have PPL ~ 1 even if it loses flexibility.
+Pair it with:
 
-| Métrica | Qué mide |
+| Metric | What it measures |
 |---|---|
-| Tasa de supervivencia del ground truth | % de secuencias reales no podadas por error (evita `PPL=∞`). |
-| Factor de ramificación efectivo | = `PPL_podado`: cuántas ramas válidas promedio quedan abiertas por nivel. |
-| Delta de perplejidad (ΔPPL) | `PPL_base / PPL_podado`: cuánto reduce la verificación la incertidumbre. |
+| Ground-truth survival rate | % of real sequences not wrongly pruned (avoids `PPL=inf`). |
+| Effective branching factor | = `PPL_pruned`: how many valid branches remain open per level on average. |
+| Perplexity delta (dPPL) | `PPL_base / PPL_pruned`: how much uncertainty the verification removes. |
 
-## 4. Estabilidad numérica
+## 4. Numerical stability
 
-Renormalizar en **log-space** (log-sum-exp), no exponenciando y re-dividiendo: con vocabularios
-grandes o podas agresivas, exponenciar primero produce underflow.
+Renormalize in **log-space** (log-sum-exp), not by exponentiating and re-dividing: with large
+vocabularies or aggressive pruning, exponentiating first underflows.
 
 ```python
-logsumexp(xs) = m + log( Σ exp(x_i - m) ),   m = max(xs)
+logsumexp(xs) = m + log( sum(exp(x_i - m)) ),   m = max(xs)
 ```
 
-## 5. Implementación
+## 5. Implementation
 
-`perplejidad_poda.py` (mismo directorio) implementa `PPL_base`, `PPL_podado`, `branching`,
-`ΔPPL` y `survival_rate` en una sola pasada. Uso:
+`perplejidad_poda.py` (same directory) implements `PPL_base`, `PPL_pruned`, `branching`, `dPPL` and
+`survival_rate` in a single pass. Usage:
 
 ```bash
-python3 perplejidad_poda.py --demo    # auto-test con datos sintéticos
+python3 perplejidad_poda.py --demo    # self-test with synthetic data
 ```
