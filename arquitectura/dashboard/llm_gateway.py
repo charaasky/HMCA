@@ -786,6 +786,20 @@ def chat_completions(body):
             '[HCMA] Respuesta descartada: el modelo devolvió una salida degenerada (%s). '
             'Probá cambiar de modelo.' % _motivo)
 
+    # Evasion/stalling detector: black-box for external, white-box for local. See detector_evasion.py.
+    try:
+        import os as _os
+        import sys as _sys
+        _scripts = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "scripts")
+        if _scripts not in _sys.path:
+            _sys.path.insert(0, _scripts)
+        import detector_evasion as _DE
+        _ev = _DE.detectar(q, _content, modo=("local" if local_enabled else "externo"))
+        if _ev:
+            resp["hcma_evasion"] = _ev
+    except Exception:
+        pass
+
     if hcma_skill is not None:
         resp["hcma_skill"] = hcma_skill
     # Provenance set by CODE (not by the LLM): the model's advisory is general knowledge NOT
