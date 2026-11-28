@@ -181,8 +181,9 @@ agent (Debian guest) -- virtio-vsock (CID=2:5000) --> firecracker --> /run/hcma/
 
 - `hcma-firecracker.service`: `ReadWritePaths=/run/hcma` so `ProtectSystem=strict` doesn't leave the
   socket base read-only.
-- The monitor chowns `/run/hcma` -> group `hcma-vsock` + `chmod 0771` **at the start** of `main()`,
-  to avoid the race with Firecracker startup.
+- The monitor's unit creates `/run/hcma` with `RuntimeDirectory=hcma` + `RuntimeDirectoryMode=0711`
+  (traversable), and chowns the **socket** `vsock.sock_5000` to group `hcma-vsock` + `chmod 0660`
+  (so Firecracker, in that group, can connect).
 
 ### Pending (non-blocking for the core)
 

@@ -37,7 +37,6 @@ agentic-context-management/
 !arquitectura/gvisor/bundle-agente/config.json
 !arquitectura/gvisor/bundle-lean/config.json
 !arquitectura/firecracker/config.json
-!arquitectura/manifiesto_sistema.json
 
 # Probes de benchmark (InjecAgent, terceros, MIT) NO se versionan: se nombran en README.md
 # y el tester los descarga del repo upstream. Los loaders (build_*.py) sí se versionan.
