@@ -207,7 +207,7 @@
     <div class="panel"><h2 data-i18n="costo">Costo por modelo (USD)</h2><canvas id="c_cost"></canvas></div>
     <div class="panel"><h2 data-i18n="llamadas">Llamadas por tipo</h2><canvas id="c_type"></canvas></div>
     <div class="panel"><h2 data-i18n="latencia">Latencia (ms)</h2><canvas id="c_lat"></canvas></div>
-    <div class="panel"><h2 data-i18n="evasion">Evasión / stalling (por tipo)</h2><div id="evasion_wrap" class="muted" style="font-size:12px">—</div></div>
+    <div class="panel"><h2 data-i18n="evasion">Evasión / stalling (por tipo)</h2><canvas id="c_evasion"></canvas><div id="evasion_wrap" class="muted" style="font-size:12px;margin-top:8px">—</div></div>
   </div>
 
   <div class="panel tabpane" data-tab="resumen" style="margin-top:14px"><h2 data-i18n="latencia_modelo">Latencia por modelo (ms)</h2>
@@ -3552,6 +3552,8 @@ async function loadEvasion(){
   try {
     const r = await fetch('/api/evasion').then(x=>x.json());
     const rows = r.evasion || [];
+    const col = {evasivo:'#e5534b', borderline:'#e0a83c', resolutivo:'#2fbf71', local:'#4c8dff'};
+    bar('c_evasion', rows.map(x=>x.modo+':'+x.label), rows.map(x=>x.calls), rows.map(x=>col[x.label]||col[x.modo]||'#8b93a5'));
     if(!rows.length){ $('evasion_wrap').innerHTML = '<span class="muted">'+t('sin_evasiones')+'</span>'; return; }
     $('evasion_wrap').innerHTML = rows.map(x =>
       `<div>${esc(x.modo)} · ${esc(x.label)} · ${esc((x.model||'').split('/').pop())} — ${fmtInt(x.calls)} ${t('llamadas').toLowerCase()}, ${fmtInt(x.completion_tokens)} ${t('tokens').toLowerCase()}</div>`
