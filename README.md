@@ -17,6 +17,114 @@ with **memory-first deterministic recall** (the LLM never decides whether a fact
 | **Hardware boundary** | Firecracker microVM | Untrusted workload runs inside a KVM microVM (vsock to the monitor) |
 | **Containment** | `px-motor` (host-side eBPF) | Detects escape attempts of the microVM subject and raises observable, attributable signals |
 
+## Architecture diagrams
+
+### Three security layers
+
+```mermaid
+flowchart TD
+    subgraph Gov["Governance - host (unprivileged UIDs)"]
+        M["hcma-monitor (999) - single-writer store"]
+        P["hcma-proxy (997) - default-deny egress"]
+        D["hcma-dashboard - HTTPS + /v1 gateway"]
+        S["hcma-signer (102) - Ed25519 offline"]
+    end
+    subgraph HW["Hardware boundary - KVM"]
+        FC["Firecracker microVM - ring -1 - read-only rootfs - no network"]
+        AG["agent (guest - UID 101)"]
+    end
+    subgraph Det["Containment / detection (host)"]
+        PX["px-motor (eBPF) - signed policy"]
+    end
+    AG -->|"vsock :5000"| M
+    M --> P
+    D --> M
+    S -.-> M
+    PX -.-> FC
+    D --> LLM["external or local LLM"]
+```
+
+### Governance and verification (don't trust the self-report)
+
+```mermaid
+flowchart TD
+    A["agent proposes a write / change"] --> M["monitor decides"]
+    M --> C{"invariants? authority + signature + nonce"}
+    C -->|"no"| R["reject - stays pending"]
+    C -->|"yes"| W["versioned write - provenance + hash-chain"]
+    W --> E{"deliverable: evidence?"}
+    E -->|"no"| P2["blocked - never self-closes"]
+    E -->|"yes"| OK["satisfied - non-LLM verifier"]
+```
+
+### LLM egress / gateway
+
+```mermaid
+flowchart TD
+    CL["OpenAI-compatible client"] --> GW["gateway /v1 - gateway key"]
+    GW -->|"external https"| EXT["external LLM - secret never leaves"]
+    GW -.->|"local http loopback"| LOC["local LLM inside the microVM"]
+    GW -->|"egress"| PX2["proxy - default-deny - TLS - no redirects"]
+```
+
+## Security features
+
+### 1. Governance and memory (trust the store, not the agent)
+
+- **Write-governance**: a single-writer monitor — the agent *proposes*, the monitor *decides* (the agent never writes directly).
+- **Provenance + lineage + integrity hash-chain**: every fact is attributable, versioned and tamper-evident.
+- **Epistemic invariant**: "the unverified never self-promotes" (authority comes from source + lineage grade).
+- **Deontic invariant** (`deontica.py`): "the pending never self-closes" — a deliverable closes only via a mechanical predicate, never the agent's claim.
+- **Self-ratification boundary** (`autoratificacion.py`): *deducible* facts are auto-verified by a non-LLM verifier; *contingent* facts require a pre-registered source or STOP-AND-ASK.
+- **Deterministic work-product verification** (`verificacion_trabajo.py`): verify the artifact against a spec, not the LLM's self-report.
+- **Measure-before-drop**: a feature can't be removed without a verified measurement showing it hurts.
+- **Governable deletion**: retract by lineage without touching unrelated knowledge.
+
+### 2. Authorization and actions
+
+- **Default-deny for effectful actions** (`gobernanza_accion.py`): no side-effect without a human-signed (Ed25519/HMAC), single-use, expiring authorization bound to the exact action+params.
+- **Human signing only** (`cli_firma_humana.py`): the private key lives outside the agent; the runtime verifies but can never sign.
+- **Trust anchor (pin)**: root-owned `/etc/hcma/publica.pin`.
+- **Nonces (anti-replay) + epoch**.
+- **Incident lifecycle** (`incidentes.py`): detect → block → quarantine → human review → patch → rehabilitate.
+- **Reconciliation audit** (`auditar_reconciliacion.py`): cross executions vs. consumed nonces.
+
+### 3. Hardware boundary (Firecracker)
+
+- **KVM microVM** (ring -1): escape requires a hypervisor bug, not an application bug.
+- **Read-only rootfs, no network** (`config.json`).
+- **vsock transport** (agent ↔ monitor, no TCP).
+- **Non-root VMM** (`hcma-firecracker`, groups `kvm` + `hcma-vsock`, no capabilities).
+- **Fail-closed systemd**: `Restart=no`, `BindsTo=hcma-monitor`.
+- **Resource limits**: `MemoryMax`/`MemoryHigh`, `CPUQuota`, `TasksMax`.
+- **Sandboxing**: `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `NoNewPrivileges`.
+- **Local LLM option** ([`arquitectura/firecracker/LLM_LOCAL.md`](arquitectura/firecracker/LLM_LOCAL.md)): run the model inside the boundary.
+
+### 4. Containment and escape detection (px-motor)
+
+- **Host-side eBPF** detector of the microVM subject.
+- **Signed runtime policy** (Ed25519, domain-separated) + **anti-rollback** (monotonic serial).
+- **Subject pinning** by cgroup + UID + exe + allowlist.
+- **Escape invariants**: `ESCAPE_UID`, `ESCAPE_EXEC`, `ESCAPE_CGROUP_MIGRATION`.
+- **Fail-closed**: an invalid/expired policy won't start.
+
+### 5. Network egress (proxy)
+
+- **Default-deny** nftables (only the proxy UID can egress).
+- **TLS always, no redirects, host pinning** (anti-token-leak).
+- **SO_PEERCRED == monitor UID** (only the monitor can ask the proxy).
+- **Public unicast only** (no private/loopback exfiltration).
+
+### 6. LLM gateway and secrets
+
+- **Gateway key** separate from the provider key (revocable without touching the provider).
+- **API keys encrypted at rest** (AES-256-GCM) with a separate master key; never re-shown.
+- **Egress policy (P0-D)**: `secret` facts never leave to external; `personal` is opt-out; local keeps all.
+- **Anti-leak key rule**: a saved key only travels to its own origin.
+- **No redirects** (Authorization is never forwarded cross-host).
+- **Anti-degenerate-output guard** (echo/poem outputs are discarded for audit).
+- **Dashboard auth**: forced password change, TOTP 2FA, role + IP allowlist.
+
 ## Security scope (honesty)
 
 The agent **runtime** runs inside the Firecracker/KVM microVM with a host-side eBPF escape
