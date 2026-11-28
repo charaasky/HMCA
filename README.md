@@ -257,3 +257,42 @@ The `px-motor` detector is built **from source** by `arquitectura/px-motor/deplo
 lives in <https://github.com/charaasky/motor-go>). **No compiled binary is committed here** — the
 installer clones and compiles it. motor-go is dual-licensed: Go detection logic **CC BY-NC-SA 4.0**,
 eBPF probes (`*.bpf.c`) **GPL-2.0**.
+
+## References
+
+Security research referenced by HCMA's detection layers (evasion, sandbagging, unfaithful
+reasoning, calibration):
+
+**Sandbagging / strategic underperformance**
+
+- Teun van der Weij et al., *AI Sandbagging: Language Models can Strategically Underperform on
+  Evaluations*, ICLR 2024. <https://arxiv.org/abs/2406.07358>
+- Cameron Tice et al., *Noise Injection Reveals Hidden Capabilities of Sandbagging Language
+  Models*, NeurIPS 2024. <https://arxiv.org/abs/2412.01784>
+- Hiskias Dingeto, *A Lie Detector Test for Language Models: Reading Knowledge a Model Won't
+  Reveal* (PIR), 2026.
+- Maheep Chaudhary, *In-Context Environments Induce Evaluation-Awareness in Language Models*,
+  2026.
+
+**Unfaithful chain-of-thought**
+
+- Miles Turpin, Julian Michael, Ethan Perez, Samuel Bowman, *Language Models Don't Always Say
+  What They Think: Unfaithful Explanations in Chain-of-Thought Prompting*, NeurIPS 2023.
+  <https://arxiv.org/abs/2305.04388>
+- Tamera Lanham et al., *Measuring Faithfulness in Chain-of-Thought Reasoning*, 2023.
+  <https://arxiv.org/abs/2307.13702>
+- Ivan Arcuschin et al., *Chain-of-Thought Reasoning In The Wild Is Not Always Faithful*, 2025.
+  <https://arxiv.org/abs/2503.08679>
+- Xu Shen et al., *FaithCoT-Bench: Benchmarking Instance-Level Faithfulness of Chain-of-Thought
+  Reasoning*, ICLR 2025. <https://arxiv.org/abs/2510.04040>
+
+**Calibration / self-knowledge**
+
+- Saurav Kadavath et al., *Language Models (Mostly) Know What They Know*, 2022.
+  <https://arxiv.org/abs/2207.05221>
+- Miao Xiong et al., *Can LLMs Express Their Uncertainty? An Empirical Evaluation of Confidence
+  Elicitation in LLMs*, ICLR 2024. <https://arxiv.org/abs/2306.13063>
+- Yi-Bo Li et al., *ConfTuner: Training Large Language Models to Express Their Confidence
+  Verbally*, NeurIPS 2025. <https://arxiv.org/abs/2508.18847>
+- L. Nel, *Do Large Language Models Know What They Don't Know? KalshiBench*, 2025.
+  <https://arxiv.org/abs/2512.16030>
