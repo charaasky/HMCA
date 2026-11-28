@@ -43,6 +43,8 @@ weights. For a real local LLM this requires hooking the inference runtime (llama
 lib that exposes weights/activations). PIR (Dingeto 2026) is the activation-probe complement: read,
 from hidden states, which candidate answer the model recognizes as correct.
 
+Concrete implementation (PyTorch/HF): `sandbagging_probe.py`.
+
 ## Dispatch
 
 `detectar(..., modo="auto")` reads `llm_config.local_llm_enabled()` and picks local vs external.

@@ -207,6 +207,7 @@
     <div class="panel"><h2 data-i18n="costo">Costo por modelo (USD)</h2><canvas id="c_cost"></canvas></div>
     <div class="panel"><h2 data-i18n="llamadas">Llamadas por tipo</h2><canvas id="c_type"></canvas></div>
     <div class="panel"><h2 data-i18n="latencia">Latencia (ms)</h2><canvas id="c_lat"></canvas></div>
+    <div class="panel"><h2 data-i18n="evasion">Evasión / stalling (por tipo)</h2><div id="evasion_wrap" class="muted" style="font-size:12px">—</div></div>
   </div>
 
   <div class="panel tabpane" data-tab="resumen" style="margin-top:14px"><h2 data-i18n="latencia_modelo">Latencia por modelo (ms)</h2>
@@ -446,6 +447,7 @@ const I18N = {
   recargar_inventario:'Recargar inventario', generar_manifiesto:'Generar manifiesto (réplica)',
   tokens:'Tokens a lo largo del tiempo', costo:'Costo por modelo (USD)',
   llamadas:'Llamadas por tipo', latencia:'Latencia (ms)', latencia_modelo:'Latencia por modelo (ms)',
+  evasion:'Evasión / stalling (por tipo)', sin_evasiones:'sin detecciones de evasión', modo:'modo', label:'tipo',
   cuellos:'Cuellos de botella — llamadas más lentas', skills:'Skills',
   arbol:'Árbol de skills (linaje) — navegable y auditable',
   memoria_timeline:'Memoria — línea de tiempo y anomalías (envenenamiento)',
@@ -477,6 +479,7 @@ const I18N = {
   recargar_inventario:'Reload inventory', generar_manifiesto:'Generate manifest (replica)',
   tokens:'Tokens over time', costo:'Cost per model (USD)',
   llamadas:'Calls by type', latencia:'Latency (ms)', latencia_modelo:'Latency per model (ms)',
+  evasion:'Evasion / stalling (by type)', sin_evasiones:'no evasion detections', modo:'mode', label:'type',
   cuellos:'Bottlenecks — slowest calls', skills:'Skills',
   arbol:'Skill tree (lineage) — navigable and auditable',
   memoria_timeline:'Memory — timeline and anomalies (poisoning)',
@@ -3545,6 +3548,17 @@ async function loadModels(){
   bar('c_type', ty.map(x=>x.type), ty.map(x=>x.calls), ty.map(x=>colors[x.type]||'#8b93a5'));
 }
 
+async function loadEvasion(){
+  try {
+    const r = await fetch('/api/evasion').then(x=>x.json());
+    const rows = r.evasion || [];
+    if(!rows.length){ $('evasion_wrap').innerHTML = '<span class="muted">'+t('sin_evasiones')+'</span>'; return; }
+    $('evasion_wrap').innerHTML = rows.map(x =>
+      `<div>${esc(x.modo)} · ${esc(x.label)} · ${esc((x.model||'').split('/').pop())} — ${fmtInt(x.calls)} ${t('llamadas').toLowerCase()}, ${fmtInt(x.completion_tokens)} ${t('tokens').toLowerCase()}</div>`
+    ).join('');
+  } catch(e){ $('evasion_wrap').innerHTML = '<span class="muted">'+t('no disponible')+'</span>'; }
+}
+
 async function loadLatency(){
   const r = await fetch('/api/latency').then(x=>x.json());
   const l = r.latency || {};
@@ -4541,7 +4555,7 @@ async function refresh(){
     if(!me.ok){ showLogin(); return; }
     ME = me.user;
   } catch(e){ return; }
-  await Promise.all([loadComponents(), loadObservabilidad(), loadOverview(), loadModels(), loadLatency(), loadSkills(), loadMemory(), loadIncidentes(), loadHerramientas(), loadAcciones(), loadMemoriaTimeline(), loadSocMemoria(), cargarRevocaciones(), loadDocumentos()]);
+  await Promise.all([loadComponents(), loadObservabilidad(), loadOverview(), loadModels(), loadLatency(), loadEvasion(), loadSkills(), loadMemory(), loadIncidentes(), loadHerramientas(), loadAcciones(), loadMemoriaTimeline(), loadSocMemoria(), cargarRevocaciones(), loadDocumentos()]);
 }
 
 $('mem_q').addEventListener('input', ()=>loadMemory());

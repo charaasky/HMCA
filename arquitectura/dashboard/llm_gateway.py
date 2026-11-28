@@ -797,6 +797,20 @@ def chat_completions(body):
         _ev = _DE.detectar(q, _content, modo=("local" if local_enabled else "externo"))
         if _ev:
             resp["hcma_evasion"] = _ev
+            try:
+                import telemetry as _TEL
+                _db = _os.environ.get("HCMA_DASH_TELEMETRY_DB",
+                                      _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "telemetry.db"))
+                _tel = _TEL.Telemetry(_db)
+                if _ev.get("modo") == "local":
+                    _label = (_ev.get("baseline_blackbox") or {}).get("label") or "local"
+                else:
+                    _label = _ev.get("label") or "externo"
+                _u = resp.get("usage") or {}
+                _tel.record_evasion(model, _label, _ev.get("modo") or "externo",
+                                    int(_u.get("completion_tokens") or 0))
+            except Exception:
+                pass
     except Exception:
         pass
 

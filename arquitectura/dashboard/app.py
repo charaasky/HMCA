@@ -1696,6 +1696,8 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/latency":
             return self._send(200, {"latency": tel.latency(), "slowest": tel.slowest(),
                                     "per_model": tel.latency_per_model()})
+        if path == "/api/evasion":
+            return self._send(200, {"evasion": tel.evasion_breakdown()})
         if path == "/api/memory":
             q = parse_qs(urlparse(self.path).query).get("q", [""])[0]
             return self._send(200, {"stats": _memory_stats(),

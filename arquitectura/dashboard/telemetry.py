@@ -126,6 +126,26 @@ class Telemetry:
                  "prompt_tokens": r["pt"], "completion_tokens": r["ct"],
                  "cost_usd": round(r["usd"], 4)} for r in rows]
 
+    def record_evasion(self, model, label, modo, completion_tokens=0, ts=None):
+        """Records an evasion detection result (reuses the calls table, call_type='evasion')."""
+        self.record(model, completion_tokens=completion_tokens,
+                    call_type="evasion", note="%s:%s" % (modo, label), ts=ts)
+        return self
+
+    def evasion_breakdown(self):
+        """Evasion detections grouped by mode, label and model (separado por tipo)."""
+        with self._lock:
+            rows = self.conn.execute(
+                "SELECT note, model, COUNT(*) n, SUM(completion_tokens) ct "
+                "FROM calls WHERE call_type='evasion' GROUP BY note, model").fetchall()
+        out = []
+        for r in rows:
+            modo, _, label = r["note"].partition(":")
+            out.append({"modo": modo, "label": label, "model": r["model"],
+                        "calls": r["n"], "completion_tokens": r["ct"]})
+        return out
+
+
     def timeline(self, bucket="10 minute"):
         with self._lock:
             rows = self.conn.execute(
