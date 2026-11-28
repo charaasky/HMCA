@@ -35,6 +35,9 @@ def _logsumexp(xs):
     return m + math.log(sum(math.exp(x - m) for x in xs))
 
 
+logsumexp = _logsumexp  # alias público para renormalizar en el harness
+
+
 def _exp_neg(m):
     """exp(-m) protegido contra overflow. m == -inf -> +inf; m muy negativo -> +inf."""
     if m == -math.inf:
