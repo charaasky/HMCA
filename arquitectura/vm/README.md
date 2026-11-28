@@ -1,64 +1,61 @@
-# VM test — instalación HCMA de punta a punta
+# VM test - end-to-end HCMA install
 
-Harness para probar que `sudo sh arquitectura/instalar.sh` funciona en una máquina
-**virgen**, sin tocar tu host real: levanta una VM Ubuntu 24.04 con QEMU/KVM,
-clona el repo, corre el instalador (preflight de dependencias + pasos 1..6) y
-verifica la salud de los servicios.
+Harness to test that `sudo sh arquitectura/instalar.sh` works on a **virgin** machine, without
+touching your real host: boots an Ubuntu 24.04 VM with QEMU/KVM, clones the repo, runs the installer
+(dependency preflight + steps 1..6) and verifies service health.
 
-## Requisitos
+## Requirements
 
-- **KVM** en el host (`/dev/kvm`) y **nested virt habilitado** (para que Firecracker
-  corra *dentro* de la VM).
-- ~40 GB de disco y ~8 GB de RAM libres.
-- `wget`, `ssh`, `scp` (estándar).
+- **KVM** on the host (`/dev/kvm`) and **nested virt enabled** (so Firecracker can run *inside* the
+  VM).
+- ~40 GB free disk and ~8 GB free RAM.
+- `wget`, `ssh`, `scp` (standard).
 
-El script instala solo lo que falta de QEMU (`qemu-system-x86 qemu-utils
-cloud-image-utils`).
+The script installs only the missing QEMU pieces (`qemu-system-x86 qemu-utils cloud-image-utils`).
 
-## Uso
+## Usage
 
 ```bash
 cd arquitectura/vm
 sh run_vm_test.sh
 ```
 
-Qué hace:
+What it does:
 
-1. Instala qemu + cloud-image-utils (si faltan).
-2. Descarga la imagen cloud de Ubuntu 24.04 (solo la primera vez).
-3. Genera un seed cloud-init con el usuario `ubuntu` + tu clave SSH.
-4. Arranca la VM con `-cpu host` (nested virt) y forward de SSH al puerto `2222`.
-5. Espera a que la VM esté arriba, copia `provision.sh` y lo ejecuta.
-6. Imprime el resultado.
+1. Installs qemu + cloud-image-utils (if missing).
+2. Downloads the Ubuntu 24.04 cloud image (only the first time).
+3. Generates a cloud-init seed with the `ubuntu` user + your SSH key.
+4. Boots the VM with `-cpu host` (nested virt) and SSH forwarding to port `2222`.
+5. Waits for the VM to come up, copies `provision.sh` and runs it.
+6. Prints the result.
 
-## Ver manualmente
+## Manual check
 
-Si preferís controlar el proceso:
+If you prefer to control the process:
 
 ```bash
-# entrar a la VM
+# enter the VM
 ssh -p 2222 ubuntu@localhost
 
-# correr la instalación
-bash /tmp/provision.sh        # (o copiar provision.sh de nuevo)
+# run the install
+bash /tmp/provision.sh        # (or copy provision.sh again)
 
-# seguir el log
+# follow the log
 tail -f /var/log/hcma-install.log
 ```
 
-## Apagar la VM
+## Shut down the VM
 
 ```bash
 sh teardown.sh
 ```
 
-Apaga el qemu del test y borra `.vm/` (imagen + seed), liberando el disco.
-La desinstalación de HCMA (dentro de la VM o en cualquier host) es:
-`sudo sh arquitectura/desinstalar.sh`.
+Stops the test qemu and removes `.vm/` (image + seed), freeing disk. HCMA uninstall (inside the VM or
+on any host) is: `sudo sh arquitectura/desinstalar.sh`.
 
-## Notas
+## Notes
 
-- El instalador crea usuarios/grupos systemd, instala paquetes, compila las sondas
-  eBPF y arranca Firecracker/KVM. Por eso la VM necesita **nested virt**; sin eso,
-  el paso de Firecracker falla (es esperable).
-- La instalación puede tardar varios minutos (apt + build de Go/eBPF).
+- The installer creates systemd users/groups, installs packages, compiles the eBPF probes and boots
+  Firecracker/KVM. That is why the VM needs **nested virt**; without it, the Firecracker step fails
+  (expected).
+- The install can take several minutes (apt + Go/eBPF build).

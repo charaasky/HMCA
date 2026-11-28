@@ -1,76 +1,74 @@
-# px-motor — detector eBPF de escape de la microVM
+# px-motor - eBPF escape detector for the microVM
 
-`px-motor` es el detector host-side que vigila el **sujeto** (el VMM Firecracker) y convierte los
-intentos de escape en **señales observables**. Es la tercera capa de la arquitectura (contención),
-complementaria al monitor/proxy (gobernanza) y a la microVM (boundary de hardware).
+`px-motor` is the host-side detector that watches the **subject** (the Firecracker VMM) and turns
+escape attempts into **observable signals**. It is the third layer of the architecture
+(containment), complementary to the monitor/proxy (governance) and the microVM (hardware boundary).
 
-Vive en otro repo (`github.com/charaasky/motor-go`); acá está el
-**despliegue** que lo integra a HCMA.
+It lives in another repo (`github.com/charaasky/motor-go`); here is the **deployment** that
+integrates it into HCMA.
 
-## Qué vigila y cómo
+## What it watches and how
 
-| Mecanismo | Detalle |
+| Mechanism | Detail |
 |---|---|
-| **Política firmada** | Ed25519 con separación de dominio (`px-motor/policy/v1`). Pin el sujeto por **cgroup** (heredado, no spoofeable) + UID + exe (+`allow` para el lanzador). **Fail-closed**: firma inválida / vencida / fingerprint ajeno / sin selector → no arranca. |
-| **Invariantes de escape** | watcher cada 2s sobre el cgroup: `ESCAPE_UID` (UID distinto al firmado), `ESCAPE_EXEC` (binario fuera de `{exe}∪{allow}`), `ESCAPE_CGROUP_MIGRATION` (sujeto que sale del cgroup vivo). Siempre se emiten (bypass del allowlist de reglas). |
-| **Anti-rollback** | persiste el mayor `serial` aceptado (root-only, escritura atómica) y rechaza políticas con serial menor. |
+| **Signed policy** | Ed25519 with domain separation (`px-motor/policy/v1`). Pins the subject by **cgroup** (inherited, non-spoofable) + UID + exe (+`allow` for the launcher). **Fail-closed**: invalid/expired signature / foreign fingerprint / no selector -> won't start. |
+| **Escape invariants** | 2s watcher over the cgroup: `ESCAPE_UID` (UID different from the signed one), `ESCAPE_EXEC` (binary outside `{exe} U {allow}`), `ESCAPE_CGROUP_MIGRATION` (subject leaving the live cgroup). Always emitted (bypass of the rules allowlist). |
+| **Anti-rollback** | persists the highest accepted `serial` (root-only, atomic write) and rejects policies with a lower serial. |
 
-El sujeto por defecto es la microVM Firecracker: `system.slice/hcma-firecracker.service`, UID 995
-(`hcma-firecracker`), binario `firecracker`, con el lanzador `python3` (`lanzar.py`) allowlisteado.
+The default subject is the Firecracker microVM: `system.slice/hcma-firecracker.service`, UID 995
+(`hcma-firecracker`), binary `firecracker`, with the `python3` launcher (`lanzar.py`) allowlisted.
 
-## Despliegue
+## Deployment
 
 ```bash
-sudo sh arquitectura/px-motor/deploy.sh   # desde la raíz del repo
+sudo sh arquitectura/px-motor/deploy.sh   # from the repo root
 ```
 
-O, todo junto, desde el orquestador:
+Or, all together, from the orchestrator:
 
 ```bash
 sudo sh arquitectura/instalar.sh
 ```
 
-`deploy.sh` es **idempotente**: compila `px-motor` + `policygen`, ubica (o genera) la clave de
-política, firma una política con `serial` monótono y `not_after`, instala el binario en
-`/usr/local/bin/px-motor`, la política en `/var/lib/px-motor/` y la unidad
-`hcma-px-motor.service`.
+`deploy.sh` is **idempotent**: compiles `px-motor` + `policygen`, locates (or generates) the policy
+key, signs a policy with a monotonic `serial` and `not_after`, installs the binary in
+`/usr/local/bin/px-motor`, the policy in `/var/lib/px-motor/` and the `hcma-px-motor.service` unit.
 
-## Configuración (variables de entorno)
+## Configuration (environment variables)
 
-| Variable | Default | Qué es |
+| Variable | Default | What it is |
 |---|---|---|
-| `PXMOTOR_SRC` | `/var/lib/px-motor/src` | repo fuente del motor (clonado de github.com/charaasky/motor-go) |
-| `PXMOTOR_CGROUP` | `system.slice/hcma-firecracker.service` | cgroup del sujeto |
-| `PXMOTOR_UID` | `995` | UID del sujeto |
-| `PXMOTOR_EXE` | `firecracker` | binario del sujeto |
-| `PXMOTOR_ALLOW` | `python3` | binarios auxiliares permitidos (coma-separados) |
-| `PXMOTOR_MODE` | `alert` | `alert` (solo registrar) o `kill` (SIGKILL al ofensor) |
-| `PXMOTOR_OUTPUT` | `/var/lib/px-motor/alerts.jsonl` | JSONL de alertas |
-| `PXMOTOR_VALID_DAYS` | `365` | días de validez de `not_after` |
-| `PXMOTOR_PIN_FINGERPRINT` | `1` | atar la política a ESTA máquina |
+| `PXMOTOR_SRC` | `/var/lib/px-motor/src` | motor source repo (cloned from github.com/charaasky/motor-go) |
+| `PXMOTOR_CGROUP` | `system.slice/hcma-firecracker.service` | subject cgroup |
+| `PXMOTOR_UID` | `995` | subject UID |
+| `PXMOTOR_EXE` | `firecracker` | subject binary |
+| `PXMOTOR_ALLOW` | `python3` | allowed auxiliary binaries (comma-separated) |
+| `PXMOTOR_MODE` | `alert` | `alert` (log only) or `kill` (SIGKILL the offender) |
+| `PXMOTOR_OUTPUT` | `/var/lib/px-motor/alerts.jsonl` | alerts JSONL |
+| `PXMOTOR_VALID_DAYS` | `365` | `not_after` validity days |
+| `PXMOTOR_PIN_FINGERPRINT` | `1` | bind the policy to THIS machine |
 
-## Clave de política (importante)
+## Policy key (important)
 
-La clave privada de política es **distinta** de `vendor.key` (licencia ≠ política). La **pública**
-va embebida como ancla de confianza en el binario (`policyPubKey`). La privada:
+The policy private key is **distinct** from `vendor.key` (license != policy). The **public** key is
+embedded as the trust anchor in the binary (`policyPubKey`). The private key:
 
-- en esta máquina: `/var/lib/px-motor/policy.key` (600 root, copiada desde `~/.keys/px-motor/policy.key`).
-- en producción: debe vivir **offline** (nunca en el host que corre px-motor).
+- on this machine: `/var/lib/px-motor/policy.key` (600 root, copied from `~/.keys/px-motor/policy.key`).
+- in production: must live **offline** (never on the host running px-motor).
 
-Si `deploy.sh` no encuentra la clave, genera un par nuevo **y rota la `policyPubKey` del fuente +
-recompila** (por eso el ancla queda consistente). Eso es un evento de rotación de confianza: hacelo
-a propósito.
+If `deploy.sh` finds no key, it generates a new pair **and rotates the source's `policyPubKey` +
+recompiles** (so the anchor stays consistent). That is a trust-rotation event: do it on purpose.
 
-## Operación
+## Operation
 
 ```bash
 systemctl status hcma-px-motor.service
-journalctl -u hcma-px-motor -n 50 -f          # arranque + fail-closed + invariantes
-tail -f /var/lib/px-motor/alerts.jsonl        # alertas ESCAPE_*
+journalctl -u hcma-px-motor -n 50 -f          # startup + fail-closed + invariants
+tail -f /var/lib/px-motor/alerts.jsonl        # ESCAPE_* alerts
 ```
 
-## Honestidad
+## Honesty
 
-px-motor hace los escapes **observables y atribuibles** (y terminables en `kill`). **No** demuestra
-que la microVM sea inescapable: ninguna frontera de software lo es. La afirmación honesta es
-"boundary de hardware + detección de escape host-side", no "100%".
+px-motor makes escapes **observable and attributable** (and terminable in `kill`). It does **not**
+prove the microVM is inescapable: no software boundary is. The honest statement is "hardware
+boundary + host-side escape detection", not "100%".

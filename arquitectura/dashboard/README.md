@@ -1,74 +1,74 @@
-# Dashboard HCMA
+# HCMA Dashboard
 
-Panel autocontenido (solo stdlib de Python: `http.server` + `sqlite3` + `json`, sin
-frameworks ni dependencias nuevas) para operar la arquitectura HCMA.
+Self-contained panel (Python stdlib only: `http.server` + `sqlite3` + `json`, no frameworks or new
+dependencies) to operate the HCMA architecture.
 
-## Qué muestra
+## What it shows
 
-- **Telemetría** (tokens in/out, costo en USD, latencia p50/p95/p99, llamadas, cache hits).
-- **Cuellos de botella** (llamadas más lentas por modelo/tipo).
-- **Flujo de datos** (tokens de entrada vs salida + timeline).
-- **Memoria (hipocampo)**: hechos vigentes/stale/unverified, búsqueda, y **borrado
-  gobernado** (marca `stale` + quita autoridad, queda en la hash chain con `op=delete`).
-- **Log de auditoría** (hash chain `facts_log`).
+- **Telemetry** (tokens in/out, cost in USD, latency p50/p95/p99, calls, cache hits).
+- **Bottlenecks** (slowest calls per model/type).
+- **Data flow** (input vs output tokens + timeline).
+- **Memory (hippocampus)**: current/stale/unverified facts, search, and **governed deletion** (marks
+  `stale` + removes authority; stays in the hash chain with `op=delete`).
+- **Audit log** (`facts_log` hash chain).
 
-## Uso
+## Usage
 
 ```bash
 cd arquitectura/dashboard
 
-# 1) opcional: poblar telemetría desde el llm_cache histórico (una vez)
+# 1) optional: backfill telemetry from the historical llm_cache (once)
 HCMA_DASH_LLM_CACHE_DIR=../scripts/llm_cache python3 -c \
   "from telemetry import Telemetry; print('backfill:', Telemetry('telemetry.db').backfill_llm_cache('../scripts/llm_cache'))"
 
-# 2) levantar el dashboard
+# 2) start the dashboard
 HCMA_DASH_TELEMETRY_DB=telemetry.db \
-HCMA_DASH_MEMORY_DB=/ruta/a/tu/memoria.db \
+HCMA_DASH_MEMORY_DB=/path/to/your/memoria.db \
 python3 app.py
-# → http://localhost:8787
+# -> http://localhost:8787
 ```
 
-## Configuración
+## Configuration
 
-| Variable | Default | Qué es |
+| Variable | Default | What it is |
 |----------|---------|--------|
-| `HCMA_DASH_PORT` | 8787 | Puerto HTTP |
-| `HCMA_DASH_TELEMETRY_DB` | `./telemetry.db` | Telemetría SQLite |
-| `HCMA_DASH_MEMORY_DB` | (vacío) | Memoria HCMA SQLite (la de `ARQ_MEMORIA_DB`) |
-| `HCMA_DASH_LLM_CACHE_DIR` | `../scripts/llm_cache` | Cache histórico para backfill |
+| `HCMA_DASH_PORT` | 8787 | HTTP port |
+| `HCMA_DASH_TELEMETRY_DB` | `./telemetry.db` | SQLite telemetry |
+| `HCMA_DASH_MEMORY_DB` | (empty) | HCMA SQLite memory (the one from `ARQ_MEMORIA_DB`) |
+| `HCMA_DASH_LLM_CACHE_DIR` | `../scripts/llm_cache` | Historical cache for backfill |
 
-## Instrumentación del orquestador
+## Orchestrator instrumentation
 
-`prototipo.py` ya registra automáticamente en telemetría (`call_llm`, `call_vision`,
-`busqueda_web`): modelo, tokens, latencia, costo y cache hit. Para que el orquestador y el
-dashboard compartan la misma BD:
+`prototipo.py` already records telemetry automatically (`call_llm`, `call_vision`, `busqueda_web`):
+model, tokens, latency, cost and cache hit. To make the orchestrator and the dashboard share the same
+DB:
 
 ```bash
-ARQ_MEMORIA_DB=/ruta/memoria.db \
+ARQ_MEMORIA_DB=/path/memoria.db \
 ARQ_TELEMETRY_DB=arquitectura/dashboard/telemetry.db \
 python3 arquitectura/scripts/prototipo.py
 ```
 
-La telemetría es **opcional y a prueba de fallos**: si no existe la BD o falla el registro,
-no interrumpe la corrida (se ignora silenciosamente).
+Telemetry is **optional and fail-safe**: if the DB does not exist or recording fails, it does not
+interrupt the run (ignored silently).
 
 ## Endpoints
 
-| Ruta | Método | Devuelve |
+| Route | Method | Returns |
 |------|--------|----------|
 | `/` | GET | UI |
-| `/api/overview` | GET | telemetría + memoria + timeline |
-| `/api/models` | GET | tokens/costo por modelo y por tipo |
-| `/api/latency` | GET | percentiles + llamadas más lentas |
-| `/api/memory` | GET | hechos (filtro `?q=`) + stats + logs |
-| `/api/memory/delete` | POST `{"key":"..."}` | borrado gobernado |
-| `/api/backfill` | POST | poblar desde `llm_cache` |
-| `/api/health` | GET | estado |
+| `/api/overview` | GET | telemetry + memory + timeline |
+| `/api/models` | GET | tokens/cost per model and type |
+| `/api/latency` | GET | percentiles + slowest calls |
+| `/api/memory` | GET | facts (`?q=` filter) + stats + logs |
+| `/api/memory/delete` | POST `{"key":"..."}` | governed deletion |
+| `/api/backfill` | POST | populate from `llm_cache` |
+| `/api/health` | GET | status |
 
-## Archivos
+## Files
 
-- `telemetry.py` — recorder SQLite + agregaciones (tokens/costo/latencia).
-- `app.py` — servidor HTTP + endpoints.
-- `index.html` — UI (Chart.js via CDN, degrada a tablas si no hay red).
-- (se instrumenta) `../scripts/prototipo.py` — escribe telemetría.
-- (se añadió) `../scripts/memoria_sqlite.py` — método `delete(key)`.
+- `telemetry.py` - SQLite recorder + aggregations (tokens/cost/latency).
+- `app.py` - HTTP server + endpoints.
+- `index.html` - UI (Chart.js via CDN, degrades to tables if offline).
+- (instrumented) `../scripts/prototipo.py` - writes telemetry.
+- (added) `../scripts/memoria_sqlite.py` - `delete(key)` method.

@@ -1,79 +1,80 @@
-# Montaje de la arquitectura HCMA
+# HCMA architecture mount
 
-Carpeta autocontenida para **montar la arquitectura completa** de forma reproducible, con un único
-orquestador y una verificación de salud.
+Self-contained folder to **mount the full architecture** reproducibly, with a single orchestrator
+and a health check.
 
-> **Instalación completa de punta a punta (core + Firecracker + px-motor):** `sudo sh ../instalar.sh`.
-> Este `montar.sh` cubre solo el core HCMA (monitor/proxy/dashboard/firma). La microVM de hardware
-> se despliega con `../firecracker/deploy.sh` y el detector eBPF con `../px-motor/deploy.sh`.
+> **Full end-to-end install (core + Firecracker + px-motor):** `sudo sh ../instalar.sh`.
+> This `montar.sh` covers only the HCMA core (monitor/proxy/dashboard/signing). The hardware microVM
+> is deployed with `../firecracker/deploy.sh` and the eBPF detector with `../px-motor/deploy.sh`.
 
-## Qué hay acá
+## What is here
 
-| Archivo | Qué hace |
+| File | What it does |
 |---|---|
-| `montar.sh` | Orquestador end-to-end (idempotente): UIDs → claves+pin → despliegue → systemd → firewall → verificación. |
-| `verificar.sh` | Verificación de salud post-montaje (sale 0 si todo OK). |
-| `README.md` | Este runbook. |
+| `montar.sh` | End-to-end orchestrator (idempotent): UIDs -> keys+pin -> deploy -> systemd -> firewall -> verification. |
+| `verificar.sh` | Post-mount health check (exits 0 if all OK). |
+| `README.md` | This runbook. |
 
-Los scripts canónicos que orquesta viven en `../scripts/` (deploy de libs, firewall, firma, etc.) y
-los `.service` en `../scripts/` y `../dashboard/`. **No se duplican**: `montar.sh` los invoca por
-ruta (fuente única de verdad).
+The canonical scripts it orchestrates live in `../scripts/` (lib deploy, firewall, signing, etc.) and
+the `.service` files in `../scripts/` and `../dashboard/`. **They are not duplicated**: `montar.sh`
+invokes them by path (single source of truth).
 
-## Cómo montar
+## How to mount
 
 ```bash
-cd arquitectura/montaje   # desde la raíz del repo
+cd arquitectura/montaje   # from the repo root
 sudo sh montar.sh
 ```
 
-`montar.sh` se re-ejecuta con `sudo` si no es root. Es **idempotente**: se puede correr de nuevo sin
-romper nada (salta lo que ya existe).
+`montar.sh` re-runs itself with `sudo` if not root. It is **idempotent**: safe to run again (it skips
+what already exists).
 
-## Qué hace cada fase
+## What each phase does
 
-1. **Frontera de UIDs** — crea `hcma-agent` (101), `hcma-signer` (102), `hcma-monitor` (999),
-   `hcma-proxy` (997) y el grupo `hcma-red` (1001); agrega `hcma-proxy` y `hcma-monitor` al grupo.
-   Los UIDs son **explícitos** para que coincidan con lo que hardcodean el firewall (997) y el
-   servicio del proxy (999).
-2. **Claves + pin** — genera el par Ed25519 (la privada queda en `/var/lib/hcma-signer/`, 600) y
-   fija el ancla de confianza `/etc/hcma/publica.pin` (root-owned).
-3. **Despliegue** — copia los módulos del monitor a `/var/lib/hcma-monitor/lib/` y los del proxy a
+1. **UID boundary** - creates `hcma-agent` (101), `hcma-signer` (102), `hcma-monitor` (999),
+   `hcma-proxy` (997) and the `hcma-red` group (1001); adds `hcma-proxy` and `hcma-monitor` to the
+   group. The UIDs are **explicit** so they match what the firewall (997) and the proxy service
+   (999) hardcode.
+2. **Keys + pin** - generates the Ed25519 pair (the private key stays in `/var/lib/hcma-signer/`,
+   600) and fixes the trust anchor `/etc/hcma/publica.pin` (root-owned).
+3. **Deploy** - copies the monitor modules to `/var/lib/hcma-monitor/lib/` and the proxy modules to
    `/var/lib/hcma-proxy/lib/`.
-4. **systemd** — instala y habilita `hcma-monitor`, `hcma-proxy` y `hcma-dashboard`.
-5. **Firewall** — nftables: default-deny **solo** para el UID 997 (proxy), host intacto.
-   ⚠️ Nunca `policy drop` en hook output (corta internet a toda la máquina); ver
+4. **systemd** - installs and enables `hcma-monitor`, `hcma-proxy` and `hcma-dashboard`.
+5. **Firewall** - nftables: default-deny **only** for UID 997 (proxy), host untouched.
+   Never `policy drop` on the output hook (cuts internet for the whole machine); see
    `../scripts/firewall_hcma_proxy.sh`.
-6. **Manifiesto + verificación** — congela el sistema (`manifiesto_sistema.py`) y corre
+6. **Manifest + verification** - freezes the system (`manifiesto_sistema.py`) and runs
    `verificar.sh`.
 
-## Paso manual (no lo hace `montar.sh`): ceremonia de corte de estado
+## Manual step (not done by `montar.sh`): state-cutover ceremony
 
-El corte del estado (checkpoint firmado + copia del store al monitor) es una **ceremonia humana**
-de una sola vez, no automatizable de forma segura. En una máquina **nueva** hay que hacerla a mano:
+The state cutover (signed checkpoint + store copy to the monitor) is a **one-time human ceremony**,
+not safely automatable. On a **new** machine it must be done by hand:
 
-1. `python3 ../scripts/checkpoint_cutover.py` — calcula el checkpoint del store.
-2. `python3 ../scripts/firmar_checkpoint.py` — lo firma el humano (fuera de línea).
-3. `sudo sh ../scripts/cutover_estado.sh --aplicar` — copia el store a
-   `/var/lib/hcma-monitor/store/memoria.db` (inodo nuevo, digest verificado) y crea el log de nonces.
-4. Verificar el digest y retirar el original manualmente.
+1. `python3 ../scripts/checkpoint_cutover.py` - computes the store checkpoint.
+2. `python3 ../scripts/firmar_checkpoint.py` - the human signs it (offline).
+3. `sudo sh ../scripts/cutover_estado.sh --aplicar` - copies the store to
+   `/var/lib/hcma-monitor/store/memoria.db` (new inode, verified digest) and creates the nonce log.
+4. Verify the digest and remove the original manually.
 
-`montar.sh` **verifica** que el store exista (fase 6) pero **no** lo crea destructivamente. En esta
-máquina el corte ya está hecho (store presente, digest `aa60f3…` alineado con el checkpoint).
+`montar.sh` **verifies** that the store exists (phase 6) but does **not** create it destructively. On
+this machine the cutover is already done (store present, digest `aa60f3...` aligned with the
+checkpoint).
 
-## Verificación rápida
+## Quick verification
 
 ```bash
-sudo sh verificar.sh          # salud completa
-curl -skS https://localhost:8787/api/components   # dashboard (más legible; TLS autofirmado)
+sudo sh verificar.sh          # full health
+curl -skS https://localhost:8787/api/components   # dashboard (more readable; self-signed TLS)
 
-# Auditoría PUNTUAL de reconciliación (Opción A): cruza ejecuciones (proxy 997)
-# contra autorizaciones consumidas (nonces del monitor 999). Ambos append-only, UIDs distintos.
-sudo python3 arquitectura/scripts/auditar_reconciliacion.py   # desde la raíz del repo
+# PUNCTUAL reconciliation audit (Option A): cross executions (proxy 997)
+# against consumed authorizations (monitor 999 nonces). Both append-only, distinct UIDs.
+sudo python3 arquitectura/scripts/auditar_reconciliacion.py   # from the repo root
 ```
 
-## Prerrequisitos del host
+## Host prerequisites
 
-- Linux con `systemd`, `nftables`, `python3` (≥3.11) y `useradd/groupadd`.
-- `runsc` (gVisor) instalado (`runsc --version`).
-- `.deps` en la raíz del repo (`.deps`, PYTHONPATH para los scripts de firma).
-- Bundles gVisor construidos en `../gvisor/` (el manifiesto los congela por hash).
+- Linux with `systemd`, `nftables`, `python3` (>=3.11) and `useradd`/`groupadd`.
+- `runsc` (gVisor) installed (`runsc --version`).
+- `.deps` at the repo root (`.deps`, PYTHONPATH for the signing scripts).
+- gVisor bundles built in `../gvisor/` (the manifest freezes them by hash).
