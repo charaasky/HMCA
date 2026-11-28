@@ -125,6 +125,18 @@ flowchart TD
 - **Anti-degenerate-output guard** (echo/poem outputs are discarded for audit).
 - **Dashboard auth**: forced password change, TOTP 2FA, role + IP allowlist.
 
+### 7. Evasion / sandbagging detection
+
+- **Black-box detector** (`detector_evasion.py`): surface heuristics (filler/hedge density,
+  deflection, missing resolutive signal, token bloat) + self-consistency + verbalized
+  confidence, for an external provider.
+- **White-box sandbagging probe** (`sandbagging_probe.py`): weight noise-injection (Tice et
+  al. 2024) for a local open-weights LLM inside Firecracker; runtime-agnostic
+  (`--backend hf|llamacpp|vllm`).
+- **Dashboard**: evasion chart + breakdown by type (`/api/evasion`).
+- **Honest limit**: the *intent* to stall is hidden; for verifiable tasks, deterministic
+  verification (`verificacion_trabajo.py`) is the only near-certain signal.
+
 ## Security scope (honesty)
 
 The agent **runtime** runs inside the Firecracker/KVM microVM with a host-side eBPF escape
