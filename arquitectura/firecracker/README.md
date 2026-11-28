@@ -111,6 +111,8 @@ alcanzable sin hardware dedicado. **No elimina** la posibilidad de escape: sigue
 superficie (el VMM ~50k LOC + KVM). La afirmación honesta es "reduce la probabilidad a 'requiere
 un bug del hypervisor'", no "es imposible". Ver `consultas/modelo_amenazas.md`.
 
+**Alcance (salvedad):** la microVM + px-motor contienen y vigilan el *runtime del agente* (el código que corre acá). El LLM es un servicio **externo** que no controlamos: para fines demostrativos se usa un LLM externo, y su comportamiento ocurre **fuera** de esta frontera. La contención protege contra un agente comprometido/defectuoso, no contra el modelo remoto.
+
 ## Construcción de la imagen huésped (vmlinux + rootfs.ext4)
 
 La microVM necesita dos artefactos que **no se versionan** (se regeneran con los scripts):

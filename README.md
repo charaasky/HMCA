@@ -17,6 +17,14 @@ with **memory-first deterministic recall** (the LLM never decides whether a fact
 | **Hardware boundary** | Firecracker microVM | Untrusted workload runs inside a KVM microVM (vsock to the monitor) |
 | **Containment** | `px-motor` (host-side eBPF) | Detects escape attempts of the microVM subject and raises observable, attributable signals |
 
+## Security scope (honesty)
+
+The agent **runtime** runs inside the Firecracker/KVM microVM with a host-side eBPF escape
+detector, so the agent's own code is contained and monitored. The LLM itself is a **remote
+service we do not control**: for demonstration purposes HCMA calls an external LLM, and its
+behavior happens **outside** that boundary. The containment protects against a compromised or
+faulty *agent runtime* — it does **not** contain the external model.
+
 ## Quick start
 
 ```bash
