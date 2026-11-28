@@ -215,6 +215,14 @@ instalá los paquetes a mano (los nombres están en `distro.sh`).
 
 ---
 
+## 10. El agente no hace lo que dice (desviación de gobernanza)
+
+Si el LLM **reporta una cosa y hace otra** (inventa una regla, borra un feature sin medir, o
+escribe código distinto al acordado), eso NO es una alucinación de salida — es una **desviación de
+gobernanza**. La respuesta no está en el sandbox ni en la perplejidad, sino en: no confiar en el
+auto-reporte y verificar el *work product* con un verificador determinista, y exigir autorización
+humana para las decisiones con efecto. Ver `arquitectura/scripts/verificacion_trabajo.md`.
+
 ## 9. Ceremonia de CORTE (checkpoint + store) — manual, por diseño
 
 El store real (`/var/lib/hcma-monitor/store/memoria.db`) se instala con una **ceremonia humana**
