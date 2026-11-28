@@ -48,6 +48,9 @@ class GatewayError(Exception):
 
 def _conn():
     c = llm_config.load()
+    lbase, lprov = llm_config.local_llm_endpoint()
+    if lbase:
+        return lbase, "", lprov
     base = (c.get("base_url") or "https://openrouter.ai/api/v1").rstrip("/")
     key = c.get("api_key") or ""
     provider = c.get("provider") or "openrouter"
@@ -180,6 +183,9 @@ def conn_for(provider=None, base_url=None, api_key=None):
       origin FOR THAT provider (not the global base_url). Old keys without origin fall back to a known
       preset. If the user points at a different host, the saved key does NOT travel.
     """
+    lbase, lprov = llm_config.local_llm_endpoint()
+    if lbase:
+        return lbase, "", lprov
     cfg = llm_config.load()
     prov = provider or cfg.get("provider") or "openrouter"
     base = (base_url or cfg.get("base_url") or "https://openrouter.ai/api/v1").rstrip("/")
@@ -437,7 +443,12 @@ def chat_completions(body):
     does not decide whether memory is used). If HIT_CONTEXTUAL or NO_HIT, injects the current facts as
     context and calls the LLM (advisory)."""
     base, key, provider = _conn()
+    local_enabled = bool(llm_config.local_llm_endpoint()[0])
     model = body.get("model") or llm_config.load().get("model") or ""
+    if local_enabled:
+        model = llm_config.local_llm().get("model") or model or "local"
+        body = dict(body)
+        body["model"] = model
     if not model:
         raise GatewayError("falta 'model' en el request", status=400)
     usuario = body.get("usuario") or ""
@@ -749,7 +760,7 @@ def chat_completions(body):
                 resp["hcma_egress"] = egress_info
             return resp
 
-    if not key:
+    if not key and not local_enabled:
         raise GatewayError("LLM no configurado (falta API key en el panel)", status=400)
 
     if _is_google(base, provider):

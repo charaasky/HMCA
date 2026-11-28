@@ -145,6 +145,11 @@ El agente conecta a `CID=2` puerto `5000`, así que Firecracker reenvía a
 esa ruta (`HCMA_VSOCK_UDS=/run/hcma/vsock.sock_5000`, seteado por `instalar.sh`); `config.json`
 solo aporta la base `/run/hcma/vsock.sock`.
 
+## LLM dentro de la microVM
+
+Para correr el modelo **adentro** de Firecracker (en vez de un API externo), con
+config de puerto/circuito desde el dashboard: ver [`LLM_LOCAL.md`](LLM_LOCAL.md).
+
 ## Estado: validado end-to-end (2026-11-26)
 
 El camino completo quedó verificado en un host Debian 14 (gcc 16, kernel 7.2):

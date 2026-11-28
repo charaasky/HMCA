@@ -34,6 +34,7 @@ DEFAULTS = {
     "base_url": "https://openrouter.ai/api/v1",
     "model": "openai/gpt-4o-mini",
     "model_type": "text",
+    "local_llm": {"enabled": False, "port": 8080, "model": "local"},
 }
 
 # Fields editable from the panel (whitelist; ignores any other key).
@@ -175,6 +176,7 @@ def load():
     d["api_key"] = keys.get(d["provider"]) or _secret(raw, "api_key_enc", "api_key")
     d["api_keys"] = keys
     d["gateway_key"] = _secret(raw, "gateway_key_enc", "gateway_key")
+    d["local_llm"] = local_llm()
     return d
 
 
@@ -212,6 +214,10 @@ def save(data):
     raw = _read_raw()
     out = {k: (data.get(k) if k in data else cur.get(k, DEFAULTS[k])) for k in PLAIN_FIELDS}
     prov = out.get("provider") or DEFAULTS["provider"]
+    ll = dict(local_llm())
+    if isinstance(data.get("local_llm"), dict):
+        ll.update(data["local_llm"])
+    out["local_llm"] = ll
     keys_enc = _api_keys_enc_map(raw)
     keys_origin = _api_keys_origin_map(raw)
     if "api_key" in data:
@@ -283,6 +289,30 @@ def api_key():
 def api_key_for(provider):
     """Returns the API key in the clear for a given provider, or '' (for the connection test)."""
     return (load().get("api_keys") or {}).get(provider) or ""
+
+
+def local_llm():
+    """Config del LLM local (dentro de la microVM): {enabled, port, model}. Sin secretos."""
+    d = dict(DEFAULTS["local_llm"])
+    raw = _read_raw()
+    if isinstance(raw.get("local_llm"), dict):
+        d.update(raw["local_llm"])
+    return d
+
+
+def local_llm_enabled():
+    return bool(local_llm().get("enabled"))
+
+
+def local_llm_endpoint():
+    """(base_url, provider) del LLM local si está habilitado; si no, (None, None).
+
+    El endpoint es loopback: el gateway habla por http a un forwarder vsock/tap del host."""
+    ll = local_llm()
+    if not ll.get("enabled"):
+        return None, None
+    port = int(ll.get("port") or 8080)
+    return "http://127.0.0.1:%d/v1" % port, "local"
 
 
 def gateway_key():
