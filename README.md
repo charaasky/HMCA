@@ -215,6 +215,19 @@ arquitectura/
   gvisor/         # legacy sandbox bundles (pre-cutover)
 ```
 
+## Documentation
+
+- [`arquitectura/ERRORES.md`](arquitectura/ERRORES.md) — requirements + troubleshooting.
+- [`arquitectura/firecracker/README.md`](arquitectura/firecracker/README.md) — gVisor→Firecracker migration, vsock, kernel/rootfs build.
+- [`arquitectura/firecracker/LLM_LOCAL.md`](arquitectura/firecracker/LLM_LOCAL.md) — run the LLM inside the microVM.
+- [`arquitectura/montaje/README.md`](arquitectura/montaje/README.md) — core mount + CORTE (state-cutover) ceremony.
+- [`arquitectura/px-motor/README.md`](arquitectura/px-motor/README.md) — eBPF escape detector.
+- [`arquitectura/dashboard/README.md`](arquitectura/dashboard/README.md) — dashboard + telemetry.
+- [`arquitectura/vm/README.md`](arquitectura/vm/README.md) — QEMU/cloud-init VM test harness.
+- [`arquitectura/scripts/verificacion_trabajo.md`](arquitectura/scripts/verificacion_trabajo.md) — deterministic work-product verification (don't trust the self-report).
+- [`arquitectura/scripts/detector_evasion.md`](arquitectura/scripts/detector_evasion.md) — evasion / stalling / sandbagging detection (black-box + white-box).
+- [`arquitectura/scripts/perplejidad_poda.md`](arquitectura/scripts/perplejidad_poda.md) — perplexity on a pruned/constrained decoder.
+
 ## License
 
 This repository is **dual-licensed**:
